@@ -6,8 +6,24 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const scrypt = promisify(scryptCallback)
-const PORT = Number(process.env.API_PORT || 3001)
+const PORT = Number(process.env.PORT || process.env.API_PORT || 3001)
 const SECRET = process.env.JWT_SECRET || 'gallerapp-demo-secret-cambiar-en-produccion'
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '')
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+const ALLOWED_ORIGINS = new Set([
+  ...(process.env.WEB_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean),
+  'http://localhost:8443',
+])
+if (Boolean(SUPABASE_URL) !== Boolean(SUPABASE_SERVICE_ROLE_KEY)) {
+  throw new Error('Configura SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY juntos.')
+}
+if (process.env.NODE_ENV === 'production' && !USE_SUPABASE) {
+  throw new Error('En producción se requiere Supabase para conservar los datos entre reinicios.')
+}
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)) {
+  throw new Error('En producción configura JWT_SECRET con al menos 32 caracteres aleatorios.')
+}
 const DB_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'users.json')
 const TOKEN_TTL = 60 * 60 * 24
 const EVENTS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'events.json')
@@ -37,9 +53,51 @@ const defaultRoosters = [
   { id: 'sample-6', name: 'Trueno Rojo', code: 'AN-194632', breed: 'Roundhead', weight: '2.16 kg', age: '29 meses', arena: 'San Miguel', owner: 'Criadero Santa Fe', wins: 9, fights: 13, status: 'inactive', image: 'https://images.unsplash.com/photo-1695641442793-adb6fcbbd7b1?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=900&h=720' },
 ]
 
+async function readStoredArray(key, file, fallback = []) {
+  if (USE_SUPABASE) {
+    const query = new URLSearchParams({ key: `eq.${key}`, select: 'value' })
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/app_state?${query}`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+    })
+    if (!response.ok) throw new Error(`Supabase respondió HTTP ${response.status} al leer ${key}.`)
+    const [row] = await response.json()
+    if (row) return row.value
+    if (fallback !== undefined) {
+      await writeStoredArray(key, file, fallback)
+      return fallback
+    }
+    return []
+  }
+  try { return JSON.parse(await readFile(file, 'utf8')) }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error
+    if (fallback !== undefined) {
+      await mkdir(dirname(file), { recursive: true })
+      await writeFile(file, JSON.stringify(fallback, null, 2), 'utf8')
+    }
+    return fallback ?? []
+  }
+}
+async function writeStoredArray(key, file, value) {
+  if (USE_SUPABASE) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/app_state?on_conflict=key`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+    })
+    if (!response.ok) throw new Error(`Supabase respondió HTTP ${response.status} al guardar ${key}.`)
+    return
+  }
+  await mkdir(dirname(file), { recursive: true })
+  await writeFile(file, JSON.stringify(value, null, 2), 'utf8')
+}
 async function readUsers() {
-  try { return JSON.parse(await readFile(DB_FILE, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return []; throw error }
+  return readStoredArray('users', DB_FILE)
 }
 function normalizeDocument(value) {
   return String(value ?? '')
@@ -67,69 +125,43 @@ async function saveUsers(users) {
     documents.add(normalized)
     user.documentoNormalizado = normalized
   }
-  await mkdir(dirname(DB_FILE), { recursive: true })
-  await writeFile(DB_FILE, JSON.stringify(users, null, 2), 'utf8')
+  await writeStoredArray('users', DB_FILE, users)
 }
 async function readEvents() {
-  try { return JSON.parse(await readFile(EVENTS_FILE, 'utf8')) }
-  catch (error) {
-    if (error.code !== 'ENOENT') throw error
-    await mkdir(dirname(EVENTS_FILE), { recursive: true })
-    await writeFile(EVENTS_FILE, JSON.stringify(defaultEvents, null, 2), 'utf8')
-    return defaultEvents
-  }
+  return readStoredArray('events', EVENTS_FILE, defaultEvents)
 }
 async function saveEvents(events) {
-  await mkdir(dirname(EVENTS_FILE), { recursive: true })
-  await writeFile(EVENTS_FILE, JSON.stringify(events, null, 2), 'utf8')
+  await writeStoredArray('events', EVENTS_FILE, events)
 }
 async function readRoosters() {
-  try { return JSON.parse(await readFile(ROOSTERS_FILE, 'utf8')) }
-  catch (error) {
-    if (error.code !== 'ENOENT') throw error
-    await mkdir(dirname(ROOSTERS_FILE), { recursive: true })
-    await writeFile(ROOSTERS_FILE, JSON.stringify(defaultRoosters, null, 2), 'utf8')
-    return defaultRoosters
-  }
+  return readStoredArray('roosters', ROOSTERS_FILE, defaultRoosters)
 }
 async function saveRoosters(roosters) {
-  await mkdir(dirname(ROOSTERS_FILE), { recursive: true })
-  await writeFile(ROOSTERS_FILE, JSON.stringify(roosters, null, 2), 'utf8')
+  await writeStoredArray('roosters', ROOSTERS_FILE, roosters)
 }
 async function readFights() {
-  try { return JSON.parse(await readFile(FIGHTS_FILE, 'utf8')) }
-  catch (error) {
-    if (error.code === 'ENOENT') return []
-    throw error
-  }
+  return readStoredArray('fights', FIGHTS_FILE)
 }
 async function saveFights(fights) {
-  await mkdir(dirname(FIGHTS_FILE), { recursive: true })
-  await writeFile(FIGHTS_FILE, JSON.stringify(fights, null, 2), 'utf8')
+  await writeStoredArray('fights', FIGHTS_FILE, fights)
 }
 async function readBets() {
-  try { return JSON.parse(await readFile(BETS_FILE, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return []; throw error }
+  return readStoredArray('bets', BETS_FILE)
 }
 async function saveBets(bets) {
-  await mkdir(dirname(BETS_FILE), { recursive: true })
-  await writeFile(BETS_FILE, JSON.stringify(bets, null, 2), 'utf8')
+  await writeStoredArray('bets', BETS_FILE, bets)
 }
 async function readWagers() {
-  try { return JSON.parse(await readFile(WAGERS_FILE, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return []; throw error }
+  return readStoredArray('wagers', WAGERS_FILE)
 }
 async function saveWagers(wagers) {
-  await mkdir(dirname(WAGERS_FILE), { recursive: true })
-  await writeFile(WAGERS_FILE, JSON.stringify(wagers, null, 2), 'utf8')
+  await writeStoredArray('wagers', WAGERS_FILE, wagers)
 }
 async function readPasswordResets() {
-  try { return JSON.parse(await readFile(PASSWORD_RESETS_FILE, 'utf8')) }
-  catch (error) { if (error.code === 'ENOENT') return []; throw error }
+  return readStoredArray('password-resets', PASSWORD_RESETS_FILE)
 }
 async function savePasswordResets(resets) {
-  await mkdir(dirname(PASSWORD_RESETS_FILE), { recursive: true })
-  await writeFile(PASSWORD_RESETS_FILE, JSON.stringify(resets, null, 2), 'utf8')
+  await writeStoredArray('password-resets', PASSWORD_RESETS_FILE, resets)
 }
 function hashPasswordResetCode(code) {
   return createHmac('sha256', SECRET).update(code).digest('hex')
@@ -215,7 +247,7 @@ async function adminFor(req) {
   return user?.role === 'administrador' ? user : null
 }
 function respond(res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': 'http://localhost:8443', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS' })
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS' })
   res.end(JSON.stringify(body))
 }
 async function bodyOf(req) {
@@ -249,6 +281,11 @@ async function authenticatedUser(req) {
 }
 
 const server = createServer(async (req, res) => {
+  const requestOrigin = req.headers.origin
+  if (requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin)
+    res.setHeader('Vary', 'Origin')
+  }
   if (req.method === 'OPTIONS') return respond(res, 204, {})
   const path = new URL(req.url, `http://${req.headers.host}`).pathname
   try {
@@ -692,4 +729,4 @@ const server = createServer(async (req, res) => {
   }
 })
 
-server.listen(PORT, () => console.log(`GallerApp API disponible en http://localhost:${PORT}`))
+server.listen(PORT, '0.0.0.0', () => console.log(`GallerApp API disponible en el puerto ${PORT}`))
