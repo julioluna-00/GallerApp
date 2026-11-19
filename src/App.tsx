@@ -501,7 +501,7 @@ export default function App() {
                   <>
                     <iframe
                       ref={streamFrameRef}
-                      src="https://vdo.ninja/?view=Uzcc8NF&cleanoutput"
+                      src="https://vdo.ninja/?view=TwHCPPY&cleanoutput"
                       title="Transmisión en vivo"
                       className="absolute inset-0 h-full w-full border-0"
                       allow="autoplay; camera; microphone; fullscreen; picture-in-picture"
