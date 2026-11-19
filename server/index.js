@@ -31,6 +31,7 @@ const ROOSTERS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', '
 const FIGHTS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'fights.json')
 const BETS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'bets.json')
 const WAGERS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'wagers.json')
+const CHAT_MESSAGES_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'chat-messages.json')
 const PASSWORD_RESETS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'password-resets.json')
 const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000
 const PASSWORD_RESET_MAX_ATTEMPTS = 5
@@ -155,6 +156,12 @@ async function readWagers() {
 }
 async function saveWagers(wagers) {
   await writeStoredArray('wagers', WAGERS_FILE, wagers)
+}
+async function readChatMessages() {
+  return readStoredArray('chat-messages', CHAT_MESSAGES_FILE)
+}
+async function saveChatMessages(messages) {
+  await writeStoredArray('chat-messages', CHAT_MESSAGES_FILE, messages)
 }
 async function readPasswordResets() {
   return readStoredArray('password-resets', PASSWORD_RESETS_FILE)
@@ -456,6 +463,32 @@ const server = createServer(async (req, res) => {
       const visible = wagers.filter(wager => currentFightIds.has(wager.fightId) && ['open', 'accepted'].includes(wager.status))
       const myWagers = viewer ? wagers.filter(wager => wager.creatorUserId === viewer.id || wager.accepterUserId === viewer.id) : []
       return respond(res, 200, { wagers: visible.map(wager => wagerView(wager, viewer?.id)), myWagers: myWagers.map(wager => wagerView(wager, viewer?.id)) })
+    }
+    if (req.method === 'GET' && path === '/api/chat/messages') {
+      const messages = await readChatMessages()
+      return respond(res, 200, { messages: messages.slice(-100).map(({ userId, ...message }) => message) })
+    }
+    if (req.method === 'POST' && path === '/api/chat/messages') {
+      const viewer = await authenticatedUser(req)
+      if (!viewer) return respond(res, 401, { message: 'Inicia sesión para participar en el chat.' })
+      const input = await bodyOf(req)
+      const message = String(input.message || '').trim()
+      if (!message || message.length > 500) return respond(res, 400, { message: 'Escribe un mensaje de hasta 500 caracteres.' })
+      return await withUserMutationLock(async () => {
+        const messages = await readChatMessages()
+        const chatMessage = {
+          id: randomBytes(12).toString('hex'),
+          userId: viewer.id,
+          user: `${viewer.nombre} ${viewer.apellido}`.trim() || viewer.email.split('@')[0],
+          msg: message,
+          time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }),
+          createdAt: new Date().toISOString(),
+        }
+        messages.push(chatMessage)
+        await saveChatMessages(messages.slice(-500))
+        const { userId, ...publicMessage } = chatMessage
+        return respond(res, 201, { message: publicMessage })
+      })
     }
     if (req.method === 'POST' && path === '/api/wagers') {
       const viewer = await authenticatedUser(req)

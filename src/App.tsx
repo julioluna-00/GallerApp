@@ -16,6 +16,7 @@ type FightStatus = 'upcoming' | 'live' | 'finished'
 type FightRooster = { id: string; name: string; code: string; image?: string; weight?: string; breed?: string }
 interface HomeFight { id: string; number: number; eventId: string; eventName: string; eventDate: string; eventTime: string; eventArena: string; roosterA: FightRooster; roosterB: FightRooster; status: FightStatus; winnerRoosterId: string | null; winnerRoosterName: string | null }
 interface FightWager { id: string; fightId: string; fightNumber: number; eventName: string; creatorName: string; creatorRoosterId: string; creatorRoosterName: string; accepterName: string | null; accepterRoosterId: string | null; accepterRoosterName: string | null; winningUserId?: string; winningName?: string; winningRoosterName?: string; amount: number; paidOut?: number; status: 'open' | 'accepted' | 'settled' | 'cancelled'; isMine?: boolean; createdAt: string; acceptedAt?: string | null; settledAt?: string | null; cancelReason?: string }
+interface ChatMessage { id: string; user: string; msg: string; time: string }
 
 function eventStatusLabel(status: EventStatus) {
   return status === 'live' ? 'live' : status === 'upcoming' ? 'proxima' : 'finalizada'
@@ -40,16 +41,6 @@ function BalanceChip({ amount }: { amount: number }) {
     <span className="text-xs font-heading font-black text-[#D99024]">{formatCOP(amount)}</span>
   </div>
 }
-
-const chatMessages = [
-  { id: 1, user: 'CarlosVP', msg: '¡Vamos Obsidiana! El favorito de esta noche 🔥', time: '8:28' },
-  { id: 2, user: 'MarisolR', msg: '¿Quién se anima a aceptar el reto?', time: '8:29' },
-  { id: 3, user: 'DiegoF88', msg: 'Aposte $100,000 a Obsidiana, confiado', time: '8:30' },
-  { id: 4, user: 'Ana_Cock', msg: '¡Qué pelea más reñida, no hay favorito claro!', time: '8:30' },
-  { id: 5, user: 'JuanGO', msg: 'Sangre Real viene de ganar 4 seguidas', time: '8:31' },
-  { id: 6, user: 'Pedro_G', msg: 'La transmisión está perfecta hoy 👌', time: '8:31' },
-  { id: 7, user: 'LuisaM', msg: 'Primera vez aquí, impresionante la plataforma', time: '8:32' },
-]
 
 // --- ICON COMPONENTS ---
 function IconLive() {
@@ -112,7 +103,9 @@ function PreFightRoosterCard({ side, rooster }: { side: 'A' | 'B'; rooster: Figh
 export default function App() {
   const [view, setView] = useState<'home' | 'fights' | 'login' | 'register' | 'about' | 'roosters' | 'rooster-directory' | 'events' | 'admin' | 'profile'>('home')
   const [chatInput, setChatInput] = useState('')
-  const [messages, setMessages] = useState(chatMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [chatError, setChatError] = useState('')
+  const [chatSending, setChatSending] = useState(false)
   const [betSelected, setBetSelected] = useState<null | 'a' | 'b'>(null)
   const [betAmount, setBetAmount] = useState('5000')
   const [openWagers, setOpenWagers] = useState<FightWager[]>([])
@@ -148,6 +141,17 @@ export default function App() {
       .catch((error: Error) => { if (active) setEventsError(error.message) })
     void refreshEvents()
     const interval = window.setInterval(() => { void refreshEvents() }, 3000)
+    return () => { active = false; window.clearInterval(interval) }
+  }, [view])
+
+  useEffect(() => {
+    if (view !== 'home') return
+    let active = true
+    const refreshChat = () => apiRequest<{ messages: ChatMessage[] }>('/chat/messages')
+      .then(data => { if (active) { setMessages(data.messages); setChatError('') } })
+      .catch((error: Error) => { if (active) setChatError(error.message) })
+    void refreshChat()
+    const interval = window.setInterval(() => { void refreshChat() }, 2000)
     return () => { active = false; window.clearInterval(interval) }
   }, [view])
 
@@ -288,15 +292,21 @@ export default function App() {
     )
   }
 
-  function sendMessage() {
-    if (!chatInput.trim()) return
-    setMessages(prev => [...prev, {
-      id: prev.length + 1,
-      user: 'Tú',
-      msg: chatInput.trim(),
-      time: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
-    }])
-    setChatInput('')
+  async function sendMessage() {
+    const message = chatInput.trim()
+    if (!message || !signedInUser || chatSending) return
+    setChatSending(true)
+    setChatError('')
+    try {
+      await apiRequest<{ message: ChatMessage }>('/chat/messages', { message }, 'POST')
+      setChatInput('')
+      const data = await apiRequest<{ messages: ChatMessage[] }>('/chat/messages')
+      setMessages(data.messages)
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
+    } finally {
+      setChatSending(false)
+    }
   }
 
   async function refreshWagers() {
@@ -618,7 +628,7 @@ export default function App() {
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2A2A2A] flex-shrink-0">
               <span className="w-2 h-2 rounded-full bg-[#176B45] animate-pulse" />
               <span className="font-heading font-black text-sm tracking-widest text-[#F5F5F5]">CHAT EN VIVO</span>
-              <span className="ml-auto text-[10px] font-heading text-[#A3A3A3]">2,847 online</span>
+              <span className="ml-auto text-[10px] font-heading text-[#A3A3A3]">Actualiza en vivo</span>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0">
@@ -638,6 +648,8 @@ export default function App() {
                   </div>
                 </div>
               ))}
+              {messages.length === 0 && <p className="py-4 text-center text-xs text-[#777]">Sé el primero en escribir.</p>}
+              {chatError && <p role="alert" className="text-[10px] text-[#F58A8E]">{chatError}</p>}
               <div ref={chatEndRef} />
             </div>
 
@@ -646,12 +658,15 @@ export default function App() {
                 type="text"
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                placeholder="Escribe un mensaje..."
+                onKeyDown={e => e.key === 'Enter' && void sendMessage()}
+                maxLength={500}
+                disabled={!signedInUser || chatSending}
+                placeholder={signedInUser ? 'Escribe un mensaje...' : 'Inicia sesión para escribir'}
                 className="flex-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-xs text-[#F5F5F5] placeholder:text-[#555] outline-none focus:border-[#D71920] transition-colors font-body"
               />
-              <button onClick={sendMessage}
-                className="w-8 h-8 rounded-lg bg-[#D71920] hover:bg-[#A01218] flex items-center justify-center transition-all duration-200 text-[#F5F5F5] flex-shrink-0 shadow-lg shadow-[#D71920]/20">
+              <button onClick={() => void sendMessage()} disabled={!signedInUser || chatSending || !chatInput.trim()}
+                aria-label="Enviar mensaje"
+                className="w-8 h-8 rounded-lg bg-[#D71920] hover:bg-[#A01218] flex items-center justify-center transition-all duration-200 text-[#F5F5F5] flex-shrink-0 shadow-lg shadow-[#D71920]/20 disabled:cursor-not-allowed disabled:opacity-50">
                 <IconSend />
               </button>
             </div>

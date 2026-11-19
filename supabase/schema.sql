@@ -8,7 +8,8 @@ create table if not exists public.app_state (
     'fights',
     'bets',
     'wagers',
-    'password-resets'
+    'password-resets',
+    'chat-messages'
   )),
   value jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
