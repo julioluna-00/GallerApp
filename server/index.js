@@ -9,14 +9,14 @@ const scrypt = promisify(scryptCallback)
 const PORT = Number(process.env.PORT || process.env.API_PORT || 3001)
 const SECRET = process.env.JWT_SECRET || 'gallerapp-demo-secret-cambiar-en-produccion'
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '')
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY)
 const ALLOWED_ORIGINS = new Set([
   ...(process.env.WEB_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean),
   'http://localhost:8443',
 ])
-if (Boolean(SUPABASE_URL) !== Boolean(SUPABASE_SERVICE_ROLE_KEY)) {
-  throw new Error('Configura SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY juntos.')
+if (Boolean(SUPABASE_URL) !== Boolean(SUPABASE_SECRET_KEY)) {
+  throw new Error('Configura SUPABASE_URL y SUPABASE_SECRET_KEY juntos.')
 }
 if (process.env.NODE_ENV === 'production' && !USE_SUPABASE) {
   throw new Error('En producción se requiere Supabase para conservar los datos entre reinicios.')
@@ -57,7 +57,7 @@ async function readStoredArray(key, file, fallback = []) {
   if (USE_SUPABASE) {
     const query = new URLSearchParams({ key: `eq.${key}`, select: 'value' })
     const response = await fetch(`${SUPABASE_URL}/rest/v1/app_state?${query}`, {
-      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      headers: { apikey: SUPABASE_SECRET_KEY },
     })
     if (!response.ok) throw new Error(`Supabase respondió HTTP ${response.status} al leer ${key}.`)
     const [row] = await response.json()
@@ -83,8 +83,7 @@ async function writeStoredArray(key, file, value) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/app_state?on_conflict=key`, {
       method: 'POST',
       headers: {
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: SUPABASE_SECRET_KEY,
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },
