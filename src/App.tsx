@@ -124,7 +124,7 @@ export default function App() {
   const [activeBetFightId, setActiveBetFightId] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const streamFrameRef = useRef<HTMLIFrameElement>(null)
-  const [streamMuted, setStreamMuted] = useState(false)
+  const [streamMuted, setStreamMuted] = useState(true)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [signedInUser, setSignedInUser] = useState<GallerUser | null>(null)
   const [events, setEvents] = useState<HomeEvent[]>([])
@@ -501,7 +501,7 @@ export default function App() {
                   <>
                     <iframe
                       ref={streamFrameRef}
-                      src="https://vdo.ninja/?view=TwHCPPY&cleanoutput"
+                      src="https://vdo.ninja/?view=TwHCPPY&cleanoutput&mutespeaker"
                       title="Transmisión en vivo"
                       className="absolute inset-0 h-full w-full border-0"
                       allow="autoplay; camera; microphone; fullscreen; picture-in-picture"
