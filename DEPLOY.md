@@ -16,8 +16,8 @@ usuarios, eventos, gallos, peleas y apuestas en una tabla PostgreSQL de Supabase
 1. Crea un **Web Service** desde `julioluna-00/GallerApp`, rama `main`.
 2. Usa `npm ci` como build command y `npm run server` como start command.
    `render.yaml` contiene estos valores y la ruta de health check.
-3. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `WEB_ORIGINS`.
-   `WEB_ORIGINS` debe ser el dominio de producción de Vercel, sin `/` al final.
+3. Configura `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`. El blueprint ya
+   permite el dominio de producción `https://gallerapp.vercel.app` en `WEB_ORIGINS`.
 4. Render genera `JWT_SECRET` desde el blueprint. No lo cambies después de que
    los usuarios inicien sesión, porque invalida los tokens existentes.
 5. Comprueba `https://<servicio>.onrender.com/api/health`.
