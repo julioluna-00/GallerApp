@@ -459,7 +459,7 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'POST' && path === '/api/wagers') {
       const viewer = await authenticatedUser(req)
-      if (!viewer || viewer.role !== 'usuario') return respond(res, 403, { message: 'Inicia sesión con una cuenta de usuario para proponer una apuesta.' })
+      if (!viewer) return respond(res, 401, { message: 'Inicia sesión para proponer una apuesta.' })
       const input = await bodyOf(req)
       const amount = Number(input.amount)
       if (!Number.isSafeInteger(amount) || amount < 1000 || !Number.isSafeInteger(amount * 2)) return respond(res, 400, { message: 'El monto mínimo es $1.000 y debe ser válido para pagar el pozo.' })
@@ -489,7 +489,7 @@ const server = createServer(async (req, res) => {
     const wagerRoute = path.match(/^\/api\/wagers\/([^/]+)(?:\/(accept))?$/)
     if (wagerRoute && req.method === 'POST' && wagerRoute[2] === 'accept') {
       const viewer = await authenticatedUser(req)
-      if (!viewer || viewer.role !== 'usuario') return respond(res, 403, { message: 'Inicia sesión con una cuenta de usuario para aceptar una apuesta.' })
+      if (!viewer) return respond(res, 401, { message: 'Inicia sesión para aceptar una apuesta.' })
       return await withUserMutationLock(async () => {
         const [fights, wagers, users, roosters] = await Promise.all([readFights(), readWagers(), readUsers(), readRoosters()])
         const wager = wagers.find(item => item.id === wagerRoute[1])
