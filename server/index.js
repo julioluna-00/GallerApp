@@ -36,6 +36,14 @@ const CHAT_MESSAGE_RETENTION_MS = 24 * 60 * 60 * 1000
 const PASSWORD_RESETS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'password-resets.json')
 const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000
 const PASSWORD_RESET_MAX_ATTEMPTS = 5
+const MP_TEST_ACCESS_TOKEN = process.env.MP_TEST_ACCESS_TOKEN || ''
+const MP_TEST_WEBHOOK_SECRET = process.env.MP_TEST_WEBHOOK_SECRET || ''
+const PUBLIC_API_URL = (process.env.PUBLIC_API_URL || 'https://gallerapp-api.onrender.com').replace(/\/$/, '')
+const PUBLIC_WEB_URL = (process.env.PUBLIC_WEB_URL || 'https://gallerapp.vercel.app').replace(/\/$/, '')
+const DEMO_PAYMENT_PACKAGES = [
+  { id: 'demo-credits-small', title: 'Paquete demo inicial', creditAmount: 10000, priceCop: 1000 },
+  { id: 'demo-credits-large', title: 'Paquete demo ampliado', creditAmount: 60000, priceCop: 5000 },
+]
 
 const defaultEvents = [
   { id: '1', name: 'Gran Derby GallerApp', date: '2026-03-07', time: '7:30 PM', arena: 'Principal', fights: 14, status: 'live', prize: 25000000 },
@@ -294,7 +302,103 @@ function verify(token) {
     return payload.exp > Date.now() / 1000 ? payload : null
   } catch { return null }
 }
-const publicUser = ({ passwordHash, passwordSalt, profileImage, documentoNormalizado, ...user }) => ({ role: 'usuario', ...user })
+const publicUser = ({ passwordHash, passwordSalt, profileImage, documentoNormalizado, demoPayments, ...user }) => ({ role: 'usuario', ...user })
+
+function demoPaymentView(payment) {
+  return {
+    id: payment.id,
+    packageId: payment.packageId,
+    creditAmount: payment.creditAmount,
+    priceCop: payment.priceCop,
+    status: payment.status,
+    createdAt: payment.createdAt,
+    approvedAt: payment.approvedAt || null,
+    creditedAt: payment.creditedAt || null,
+  }
+}
+
+function verifyMercadoPagoSignature(signatureHeader, requestId, dataId, secret) {
+  if (!signatureHeader || !requestId || !dataId || !secret) return false
+  const parts = Object.fromEntries(String(signatureHeader).split(',').map(part => {
+    const separator = part.indexOf('=')
+    return separator < 0 ? ['', ''] : [part.slice(0, separator).trim(), part.slice(separator + 1).trim()]
+  }))
+  if (!parts.ts || !parts.v1 || !/^[a-f0-9]{64}$/i.test(parts.v1)) return false
+  const manifest = `id:${String(dataId).toLowerCase()};request-id:${requestId};ts:${parts.ts};`
+  const expected = createHmac('sha256', secret).update(manifest).digest()
+  const actual = Buffer.from(parts.v1, 'hex')
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
+}
+
+async function mercadoPagoRequest(path, options = {}) {
+  if (!MP_TEST_ACCESS_TOKEN) {
+    const error = new Error('La pasarela de prueba aún no está configurada en el servidor.')
+    error.status = 503
+    throw error
+  }
+  const response = await fetch(`https://api.mercadopago.com${path}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${MP_TEST_ACCESS_TOKEN}`, ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const error = new Error('Mercado Pago no pudo procesar la operación de prueba.')
+    error.status = response.status >= 500 ? 502 : 400
+    throw error
+  }
+  return data
+}
+
+function paymentReturnUrl(paymentId) {
+  const url = new URL('/', PUBLIC_WEB_URL)
+  url.searchParams.set('view', 'profile')
+  url.searchParams.set('demo_payment', paymentId)
+  return url.toString()
+}
+
+async function findProviderPayment(paymentId, externalReference) {
+  if (paymentId) return mercadoPagoRequest(`/v1/payments/${encodeURIComponent(paymentId)}`)
+  const query = new URLSearchParams({ external_reference: externalReference, sort: 'date_created', criteria: 'desc', limit: '10' })
+  const result = await mercadoPagoRequest(`/v1/payments/search?${query}`)
+  return (result.results || []).find(payment => payment.external_reference === externalReference) || null
+}
+
+async function syncDemoPayment({ paymentId, externalReference, verifiedPayment = null }) {
+  const providerPayment = verifiedPayment || await findProviderPayment(paymentId, externalReference)
+  if (!providerPayment) return { updated: false, status: 'pending' }
+  if (providerPayment.live_mode !== false || providerPayment.external_reference !== externalReference) return { updated: false, status: 'rejected' }
+
+  return withUserMutationLock(async () => {
+    const users = await readUsers()
+    const owner = users.find(item => (item.demoPayments || []).some(transaction => transaction.id === externalReference))
+    if (!owner) return { updated: false, status: 'not_found' }
+    const transaction = owner.demoPayments.find(item => item.id === externalReference)
+    const expectedAmount = Number(transaction.priceCop)
+    const paidAmount = Number(providerPayment.transaction_amount)
+    if (providerPayment.currency_id !== 'COP' || !Number.isFinite(paidAmount) || Math.round(paidAmount * 100) !== Math.round(expectedAmount * 100)) {
+      return { updated: false, status: 'rejected' }
+    }
+
+    transaction.providerPaymentId = String(providerPayment.id)
+    transaction.status = String(providerPayment.status || 'pending')
+    transaction.updatedAt = new Date().toISOString()
+    if (providerPayment.status === 'approved' && !transaction.creditedAt) {
+      const duplicateCredit = users.some(item => (item.demoPayments || []).some(existing => existing.id !== transaction.id && existing.providerPaymentId === String(providerPayment.id) && existing.creditedAt))
+      if (!duplicateCredit) {
+        owner.saldo = (Number(owner.saldo) || 0) + Number(transaction.creditAmount)
+        transaction.creditedAt = transaction.updatedAt
+        transaction.approvedAt = providerPayment.date_approved || transaction.updatedAt
+      }
+    }
+    await saveUsers(users)
+    return {
+      updated: true,
+      status: transaction.status,
+      payment: demoPaymentView(transaction),
+      profile: { ...publicUser(owner), profileImage: owner.profileImage || '' },
+    }
+  })
+}
 
 async function authenticatedUser(req) {
   const payload = verify((req.headers.authorization || '').replace(/^Bearer\s+/i, ''))
@@ -421,6 +525,128 @@ const server = createServer(async (req, res) => {
         await saveUsers(users)
         return respond(res, 200, { message: 'Perfil actualizado correctamente.', profile: { ...publicUser(storedUser), profileImage: storedUser.profileImage || '' } })
       })
+    }
+    if (req.method === 'GET' && path === '/api/payments/demo/config') {
+      return respond(res, 200, {
+        provider: 'Mercado Pago · modo de prueba',
+        enabled: Boolean(MP_TEST_ACCESS_TOKEN && MP_TEST_WEBHOOK_SECRET),
+        packages: DEMO_PAYMENT_PACKAGES.map(({ id, title, creditAmount, priceCop }) => ({ id, title, creditAmount, priceCop })),
+      })
+    }
+    if (req.method === 'POST' && path === '/api/payments/demo/checkout') {
+      const user = await authenticatedUser(req)
+      if (!user) return respond(res, 401, { message: 'Inicia sesión para abrir el checkout de prueba.' })
+      if (!MP_TEST_ACCESS_TOKEN || !MP_TEST_WEBHOOK_SECRET) return respond(res, 503, { message: 'El checkout de prueba aún no está configurado en Render.' })
+      const input = await bodyOf(req)
+      const selectedPackage = DEMO_PAYMENT_PACKAGES.find(item => item.id === input.packageId)
+      if (!selectedPackage) return respond(res, 400, { message: 'Selecciona uno de los paquetes demo disponibles.' })
+
+      const transaction = await withUserMutationLock(async () => {
+        const users = await readUsers()
+        const storedUser = users.find(item => item.id === user.id)
+        if (!storedUser) return null
+        const payment = {
+          id: randomBytes(18).toString('hex'),
+          packageId: selectedPackage.id,
+          creditAmount: selectedPackage.creditAmount,
+          priceCop: selectedPackage.priceCop,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        }
+        storedUser.demoPayments = [...(storedUser.demoPayments || []), payment].slice(-30)
+        await saveUsers(users)
+        return payment
+      })
+      if (!transaction) return respond(res, 404, { message: 'No se encontró tu cuenta.' })
+
+      try {
+        const returnUrl = paymentReturnUrl(transaction.id)
+        const preference = await mercadoPagoRequest('/checkout/preferences', {
+          method: 'POST',
+          body: JSON.stringify({
+            items: [{
+              id: selectedPackage.id,
+              title: `${selectedPackage.title} · créditos ficticios`,
+              description: 'Demostración de GallerApp. Créditos sin valor monetario, no canjeables.',
+              quantity: 1,
+              currency_id: 'COP',
+              unit_price: selectedPackage.priceCop,
+            }],
+            external_reference: transaction.id,
+            notification_url: `${PUBLIC_API_URL}/api/payments/webhook`,
+            back_urls: { success: returnUrl, pending: returnUrl, failure: returnUrl },
+            auto_return: 'approved',
+            metadata: { demo_user_id: user.id, demo_package_id: selectedPackage.id },
+          }),
+        })
+        const checkoutUrl = String(preference.sandbox_init_point || '')
+        if (!checkoutUrl) throw new Error('Mercado Pago no devolvió un enlace de checkout Sandbox.')
+        let safeCheckout
+        try { safeCheckout = new URL(checkoutUrl) }
+        catch { throw new Error('Mercado Pago devolvió un enlace Sandbox inválido.') }
+        const allowedHost = safeCheckout.hostname === 'mercadopago.com' || safeCheckout.hostname.endsWith('.mercadopago.com') || safeCheckout.hostname === 'mercadopago.com.co' || safeCheckout.hostname.endsWith('.mercadopago.com.co')
+        if (!allowedHost || safeCheckout.protocol !== 'https:') throw new Error('Mercado Pago no devolvió una URL de checkout Sandbox segura.')
+
+        await withUserMutationLock(async () => {
+          const users = await readUsers()
+          const storedUser = users.find(item => item.id === user.id)
+          const storedPayment = storedUser?.demoPayments?.find(item => item.id === transaction.id)
+          if (storedPayment) {
+            storedPayment.preferenceId = String(preference.id || '')
+            await saveUsers(users)
+          }
+        })
+        return respond(res, 201, { checkoutUrl: safeCheckout.toString(), payment: demoPaymentView(transaction) })
+      } catch (error) {
+        await withUserMutationLock(async () => {
+          const users = await readUsers()
+          const storedUser = users.find(item => item.id === user.id)
+          const storedPayment = storedUser?.demoPayments?.find(item => item.id === transaction.id)
+          if (storedPayment) {
+            storedPayment.status = 'error'
+            await saveUsers(users)
+          }
+        })
+        throw error
+      }
+    }
+    if (req.method === 'GET' && path === '/api/payments/demo/history') {
+      const user = await authenticatedUser(req)
+      if (!user) return respond(res, 401, { message: 'Inicia sesión para consultar tus pagos de prueba.' })
+      const storedUser = (await readUsers()).find(item => item.id === user.id)
+      const payments = (storedUser?.demoPayments || []).slice(-10).reverse().map(demoPaymentView)
+      return respond(res, 200, { payments })
+    }
+    const demoPaymentRoute = path.match(/^\/api\/payments\/demo\/([a-f0-9]{36})\/sync$/)
+    if (req.method === 'POST' && demoPaymentRoute) {
+      const user = await authenticatedUser(req)
+      if (!user) return respond(res, 401, { message: 'Inicia sesión para verificar el pago de prueba.' })
+      const transaction = (user.demoPayments || []).find(item => item.id === demoPaymentRoute[1])
+      if (!transaction) return respond(res, 404, { message: 'No se encontró ese checkout de prueba en tu cuenta.' })
+      const input = await bodyOf(req)
+      const paymentId = /^\d{1,30}$/.test(String(input.paymentId || '')) ? String(input.paymentId) : ''
+      const result = await syncDemoPayment({ paymentId, externalReference: transaction.id })
+      const currentUser = (await readUsers()).find(item => item.id === user.id)
+      return respond(res, 200, {
+        payment: result.payment || demoPaymentView((currentUser?.demoPayments || []).find(item => item.id === transaction.id) || transaction),
+        profile: currentUser ? { ...publicUser(currentUser), profileImage: currentUser.profileImage || '' } : null,
+      })
+    }
+    if (req.method === 'POST' && path === '/api/payments/webhook') {
+      if (!MP_TEST_ACCESS_TOKEN || !MP_TEST_WEBHOOK_SECRET) return respond(res, 503, { message: 'Webhook de pagos de prueba no configurado.' })
+      const url = new URL(req.url, `http://${req.headers.host}`)
+      const input = await bodyOf(req)
+      const dataId = String(url.searchParams.get('data.id') || input.data?.id || '')
+      if (!verifyMercadoPagoSignature(req.headers['x-signature'], req.headers['x-request-id'], dataId, MP_TEST_WEBHOOK_SECRET)) {
+        return respond(res, 401, { message: 'Firma del webhook inválida.' })
+      }
+      const topic = String(url.searchParams.get('type') || url.searchParams.get('topic') || input.type || input.topic || '')
+      if (topic !== 'payment' || !/^\d{1,30}$/.test(dataId)) return respond(res, 200, { ok: true })
+      const providerPayment = await mercadoPagoRequest(`/v1/payments/${encodeURIComponent(dataId)}`)
+      if (providerPayment.live_mode === false && providerPayment.external_reference) {
+        await syncDemoPayment({ paymentId: dataId, externalReference: providerPayment.external_reference, verifiedPayment: providerPayment })
+      }
+      return respond(res, 200, { ok: true })
     }
     if (req.method === 'GET' && path === '/api/roosters') return respond(res, 200, { roosters: await readRoosters() })
     if (req.method === 'POST' && path === '/api/roosters') {

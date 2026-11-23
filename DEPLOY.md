@@ -55,3 +55,30 @@ desplegar para que Vite incorpore la variable al frontend.
 
 La recuperación de contraseña por correo necesita un proveedor de correo y
 continúa deshabilitada en producción hasta configurarlo.
+
+## Checkout Pro de Mercado Pago (solo Sandbox)
+
+La integración de entrega está limitada a **Sandbox**: los pagos de prueba
+pueden añadir créditos demo ficticios para mostrar el flujo de checkout. No
+acepta dinero real, no crea saldo canjeable y no incluye retiros. La API exige
+que Mercado Pago confirme `live_mode: false` antes de acreditar esos créditos.
+
+1. En [Tus integraciones de Mercado Pago](https://www.mercadopago.com.co/developers/panel/app), crea o abre una aplicación y copia el **Access Token de prueba** (no el de producción).
+2. En Render → servicio `gallerapp-api` → **Environment**, agrega:
+   - `MP_TEST_ACCESS_TOKEN`: Access Token de prueba.
+   - `MP_TEST_WEBHOOK_SECRET`: la clave secreta generada al configurar el webhook de prueba en Mercado Pago.
+3. En Mercado Pago → aplicación → **Webhooks**, registra como URL de prueba
+   `https://gallerapp-api.onrender.com/api/payments/webhook` y activa el evento
+   **Pagos**. Usa la misma clave secreta en Render. Mercado Pago permite separar
+   los webhooks de prueba y producción y firma las notificaciones para validar
+   su origen ([documentación](https://www.mercadopago.com.co/developers/es/docs/checkout-pro-orders/resources/notifications/webhooks)).
+4. Guarda las variables y espera a que Render reinicie el servicio. En la web,
+   inicia sesión y abre **Mi perfil → Recargar créditos demo (Sandbox)**. Usa
+   una cuenta compradora y una tarjeta de prueba de Mercado Pago; sus
+   [instrucciones de compras de prueba](https://www.mercadopago.com.co/developers/es/docs/checkout-pro-preferences/integration-test/test-purchases)
+   explican cómo generar cuentas y simular aprobaciones o rechazos.
+
+La creación del checkout se hace desde el servidor con paquetes y precios
+fijos. La firma del webhook se valida y el pago se vuelve a consultar con la API
+de Mercado Pago; la URL de retorno del navegador por sí sola nunca acredita el
+saldo. No guardes estas credenciales en Vercel, en GitHub ni en el código.

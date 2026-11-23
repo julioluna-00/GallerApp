@@ -101,7 +101,7 @@ function PreFightRoosterCard({ side, rooster }: { side: 'A' | 'B'; rooster: Figh
 }
 // --- MAIN APP ---
 export default function App() {
-  const [view, setView] = useState<'home' | 'fights' | 'login' | 'register' | 'about' | 'roosters' | 'rooster-directory' | 'events' | 'admin' | 'profile'>('home')
+  const [view, setView] = useState<'home' | 'fights' | 'login' | 'register' | 'about' | 'roosters' | 'rooster-directory' | 'events' | 'admin' | 'profile'>(() => new URLSearchParams(window.location.search).get('view') === 'profile' ? 'profile' : 'home')
   const [chatInput, setChatInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [chatError, setChatError] = useState('')
@@ -180,7 +180,7 @@ export default function App() {
     if (sessionStorage.getItem('gallerapp_token')) {
       apiRequest<{ user: GallerUser }>('/auth/me')
         .then(({ user }) => setSignedInUser(user))
-        .catch(() => sessionStorage.removeItem('gallerapp_token'))
+        .catch(() => { sessionStorage.removeItem('gallerapp_token'); setView(current => current === 'profile' ? 'home' : current) })
     }
   }, [])
 
@@ -219,7 +219,9 @@ export default function App() {
 
   if (view === 'profile') return signedInUser
     ? <Profile user={signedInUser} onBack={() => setView('home')} onUpdated={setSignedInUser} />
-    : <main className="min-h-screen bg-[#0B0B0B] p-10 text-center text-white">Inicia sesión para ver tu perfil. <button className="ml-2 underline" onClick={() => setView('login')}>Entrar</button></main>
+    : sessionStorage.getItem('gallerapp_token')
+      ? <main className="min-h-screen bg-[#0B0B0B] p-10 text-center text-white">Validando tu sesión…</main>
+      : <main className="min-h-screen bg-[#0B0B0B] p-10 text-center text-white">Inicia sesión para ver tu perfil. <button className="ml-2 underline" onClick={() => setView('login')}>Entrar</button></main>
 
   if (view === 'login') return <Login onBack={() => setView('home')} onGoRegister={() => setView('register')} onSuccess={(user) => { setSignedInUser(user); setView('home') }} />
   if (view === 'register') return <Register onBack={() => setView('home')} onGoLogin={() => setView('login')} />

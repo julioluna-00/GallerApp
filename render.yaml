@@ -17,3 +17,11 @@ services:
         sync: false
       - key: WEB_ORIGINS
         value: https://gallerapp.vercel.app
+      - key: PUBLIC_API_URL
+        value: https://gallerapp-api.onrender.com
+      - key: PUBLIC_WEB_URL
+        value: https://gallerapp.vercel.app
+      - key: MP_TEST_ACCESS_TOKEN
+        sync: false
+      - key: MP_TEST_WEBHOOK_SECRET
+        sync: false
