@@ -630,7 +630,7 @@ export default function App() {
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2A2A2A] flex-shrink-0">
               <span className="w-2 h-2 rounded-full bg-[#176B45] animate-pulse" />
               <span className="font-heading font-black text-sm tracking-widest text-[#F5F5F5]">CHAT EN VIVO</span>
-              <span className="ml-auto text-[10px] font-heading text-[#A3A3A3]">Actualiza en vivo</span>
+              <span title="Los mensajes se eliminan automáticamente después de 24 horas" className="ml-auto text-[10px] font-heading text-[#A3A3A3]">Historial: 24 h</span>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0">

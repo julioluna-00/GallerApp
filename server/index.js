@@ -32,6 +32,7 @@ const FIGHTS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'fi
 const BETS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'bets.json')
 const WAGERS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'wagers.json')
 const CHAT_MESSAGES_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'chat-messages.json')
+const CHAT_MESSAGE_RETENTION_MS = 24 * 60 * 60 * 1000
 const PASSWORD_RESETS_FILE = resolve(dirname(fileURLToPath(import.meta.url)), 'data', 'password-resets.json')
 const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000
 const PASSWORD_RESET_MAX_ATTEMPTS = 5
@@ -162,6 +163,21 @@ async function readChatMessages() {
 }
 async function saveChatMessages(messages) {
   await writeStoredArray('chat-messages', CHAT_MESSAGES_FILE, messages)
+}
+function retainRecentChatMessages(messages, now = Date.now()) {
+  const cutoff = now - CHAT_MESSAGE_RETENTION_MS
+  return messages.filter(message => {
+    const createdAt = Date.parse(message?.createdAt)
+    return Number.isFinite(createdAt) && createdAt > cutoff && createdAt <= now
+  })
+}
+async function pruneExpiredChatMessages() {
+  return withUserMutationLock(async () => {
+    const messages = await readChatMessages()
+    const recentMessages = retainRecentChatMessages(messages)
+    if (recentMessages.length !== messages.length) await saveChatMessages(recentMessages)
+    return recentMessages
+  })
 }
 async function readPasswordResets() {
   return readStoredArray('password-resets', PASSWORD_RESETS_FILE)
@@ -465,7 +481,7 @@ const server = createServer(async (req, res) => {
       return respond(res, 200, { wagers: visible.map(wager => wagerView(wager, viewer?.id)), myWagers: myWagers.map(wager => wagerView(wager, viewer?.id)) })
     }
     if (req.method === 'GET' && path === '/api/chat/messages') {
-      const messages = await readChatMessages()
+      const messages = await pruneExpiredChatMessages()
       return respond(res, 200, { messages: messages.slice(-100).map(({ userId, ...message }) => message) })
     }
     if (req.method === 'POST' && path === '/api/chat/messages') {
@@ -475,7 +491,7 @@ const server = createServer(async (req, res) => {
       const message = String(input.message || '').trim()
       if (!message || message.length > 500) return respond(res, 400, { message: 'Escribe un mensaje de hasta 500 caracteres.' })
       return await withUserMutationLock(async () => {
-        const messages = await readChatMessages()
+        const messages = retainRecentChatMessages(await readChatMessages())
         const chatMessage = {
           id: randomBytes(12).toString('hex'),
           userId: viewer.id,
