@@ -36,6 +36,7 @@ export default function Profile({ user, onBack, onUpdated }: ProfileProps) {
   const [demoPayments, setDemoPayments] = useState<DemoPayment[]>([])
   const [paymentBusy, setPaymentBusy] = useState(false)
   const [selectedDemoPackage, setSelectedDemoPackage] = useState<DemoPackage | null>(null)
+  const [demoOutcome, setDemoOutcome] = useState<'approved' | 'rejected'>('approved')
   const [checkingPaymentId, setCheckingPaymentId] = useState('')
   const [paymentError, setPaymentError] = useState('')
   const [paymentNotice, setPaymentNotice] = useState('')
@@ -117,7 +118,12 @@ export default function Profile({ user, onBack, onUpdated }: ProfileProps) {
   async function startDemoCheckout(packageId: string) {
     if (paymentConfig?.mode === 'simulator') {
       const selectedPackage = paymentConfig.packages.find(item => item.id === packageId)
-      if (selectedPackage) setSelectedDemoPackage(selectedPackage)
+      if (selectedPackage) {
+        setPaymentError('')
+        setPaymentNotice('')
+        setDemoOutcome('approved')
+        setSelectedDemoPackage(selectedPackage)
+      }
       return
     }
     setPaymentBusy(true)
@@ -243,51 +249,116 @@ export default function Profile({ user, onBack, onUpdated }: ProfileProps) {
           </div>
         </form>
 
-        <section className="overflow-hidden rounded-2xl border border-[#D99024]/30 bg-[#151515] shadow-xl shadow-black/20">
-          <div className="border-b border-[#2A2A2A] p-6 sm:p-8">
-            <p className="text-[10px] font-black tracking-[0.22em] text-[#D99024]">{paymentConfig?.mode === 'simulator' ? 'SIMULADOR · DEMO' : 'CHECKOUT · SANDBOX'}</p>
-            <h2 className="mt-2 font-heading text-2xl font-black">Recarga créditos demo</h2>
-            <p className="mt-2 text-sm text-[#A3A3A3]">{paymentConfig?.mode === 'simulator' ? 'Simulador de pago incluido. No requiere cuentas, credenciales ni configuración externa.' : `${paymentConfig?.provider || 'Mercado Pago · modo Sandbox'}. Usa la cuenta compradora y las tarjetas de prueba de Mercado Pago.`}</p>
-            <p className="mt-4 rounded-xl border border-[#D99024]/30 bg-[#D99024]/10 p-3 text-xs leading-relaxed text-[#E7C58E]">Demostración académica: no se cobra dinero real. Los créditos son ficticios y no se pueden retirar ni canjear. {paymentConfig?.mode === 'simulator' ? 'Al continuar podrás simular un pago aprobado o rechazado.' : 'Solo se aceptan pagos Sandbox confirmados por el proveedor.'}</p>
+        <section className="overflow-hidden rounded-[26px] border border-white/10 bg-[#101014] shadow-2xl shadow-black/30">
+          <div className="relative overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#271510] via-[#171418] to-[#101014] p-6 sm:p-8">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-20 h-64 w-64 rounded-full bg-[#D71920]/15 blur-3xl" />
+            <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#D99024]/30 bg-[#D99024]/10 text-xl font-black text-[#E7A638]">D</div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[10px] font-black tracking-[0.22em] text-[#E7A638]">GALLERAPP · WALLET DEMO</p>
+                    <span className="rounded-full border border-[#176B45]/40 bg-[#176B45]/15 px-2.5 py-1 text-[9px] font-bold tracking-widest text-[#72D1A4]">SIN COBRO REAL</span>
+                  </div>
+                  <h2 className="mt-2 font-heading text-2xl font-black sm:text-3xl">Recarga créditos demo</h2>
+                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#B8B4B2]">{paymentConfig?.mode === 'simulator' ? 'Prueba el flujo de pago de GallerApp sin cuentas externas ni credenciales.' : 'Prueba el checkout de Mercado Pago con su entorno Sandbox.'}</p>
+                </div>
+              </div>
+              <div className="min-w-[170px] rounded-2xl border border-white/10 bg-black/20 px-4 py-3 sm:text-right">
+                <p className="text-[9px] font-bold tracking-[0.18em] text-[#A3A3A3]">SALDO ACTUAL</p>
+                <p className="mt-1 font-heading text-lg font-black text-[#E7A638]">{new Intl.NumberFormat('es-CO').format(profile.saldo ?? 0)} <span className="text-xs font-semibold text-[#AAA]">créditos</span></p>
+              </div>
+            </div>
+            <div className="relative mt-6 flex items-start gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-black text-[#E7A638]">i</span>
+              <p className="text-xs leading-relaxed text-[#C5C0BD]">Este checkout es solo para la entrega académica. No ingresa datos bancarios ni cobra; los créditos son ficticios y no se pueden retirar.</p>
+            </div>
           </div>
 
-          <div className="space-y-4 p-6 sm:p-8">
-            {!paymentConfig?.enabled && <p role="status" className="rounded-xl border border-[#D99024]/30 bg-[#D99024]/10 px-4 py-3 text-sm text-[#E7C58E]">El checkout no está disponible temporalmente.</p>}
-            {paymentError && <p role="alert" className="rounded-xl border border-[#D71920]/40 bg-[#D71920]/10 px-4 py-3 text-sm text-[#F5A0A3]">{paymentError}</p>}
-            {paymentNotice && <p role="status" className="rounded-xl border border-[#176B45]/40 bg-[#176B45]/10 px-4 py-3 text-sm text-[#72D1A4]">{paymentNotice}</p>}
+          <div className="space-y-5 p-5 sm:p-8">
+            {!paymentConfig?.enabled && <p role="status" className="rounded-xl border border-[#D99024]/20 bg-[#D99024]/[0.06] px-4 py-3 text-sm text-[#E7C58E]">El checkout no está disponible temporalmente.</p>}
+            {paymentError && <p role="alert" className="rounded-xl border border-[#D71920]/30 bg-[#D71920]/[0.08] px-4 py-3 text-sm text-[#F5A0A3]">{paymentError}</p>}
+            {paymentNotice && <p role="status" className={`rounded-xl border px-4 py-3 text-sm ${paymentNotice.toLowerCase().includes('rechazado') ? 'border-[#D99024]/30 bg-[#D99024]/[0.08] text-[#E7C58E]' : 'border-[#176B45]/30 bg-[#176B45]/[0.08] text-[#72D1A4]'}`}>{paymentNotice}</p>}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(paymentConfig?.packages || []).map(item => <article key={item.id} className="rounded-xl border border-[#333] bg-[#101010] p-4">
-                <p className="font-heading text-sm font-black">{item.title}</p>
-                <p className="mt-2 text-lg font-black text-[#D99024]">{new Intl.NumberFormat('es-CO').format(item.creditAmount)} créditos demo</p>
-                <p className="mt-1 text-xs text-[#888]">Valor ilustrativo, sin cobro: COP ${new Intl.NumberFormat('es-CO').format(item.priceCop)}</p>
-                <button type="button" disabled={!paymentConfig?.enabled || paymentBusy} onClick={() => void startDemoCheckout(item.id)} className="mt-4 w-full rounded-lg bg-[#D71920] px-4 py-3 text-xs font-black tracking-widest text-white disabled:cursor-not-allowed disabled:opacity-40">{paymentBusy ? 'PROCESANDO…' : paymentConfig?.mode === 'simulator' ? 'INICIAR PAGO DEMO' : 'PROBAR PAGO SANDBOX'}</button>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-black tracking-[0.2em] text-[#888]">RECARGAS DISPONIBLES</p>
+                <h3 className="mt-1 font-heading text-lg font-black">Elige tu paquete</h3>
+              </div>
+              <p className="text-xs text-[#777]">{paymentConfig?.mode === 'simulator' ? 'Simulación instantánea' : 'Pago de prueba Sandbox'}</p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(paymentConfig?.packages || []).map((item, index) => <article key={item.id} className={`relative overflow-hidden rounded-2xl border p-5 transition-colors ${index === 1 ? 'border-[#D99024]/35 bg-gradient-to-br from-[#211912] to-[#121212]' : 'border-white/10 bg-[#141416]'}`}>
+                {index === 1 && <span className="absolute right-4 top-4 rounded-full bg-[#D99024]/15 px-2.5 py-1 text-[9px] font-black tracking-wider text-[#E7A638]">MÁS CRÉDITOS</span>}
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-black/20 text-sm font-black text-[#E7A638]">{index + 1}</span>
+                  <div>
+                    <p className="font-heading text-sm font-black">{item.title}</p>
+                    <p className="mt-0.5 text-[10px] tracking-wide text-[#888]">RECARGA DE DEMOSTRACIÓN</p>
+                  </div>
+                </div>
+                <div className="mt-5 border-b border-white/10 pb-4">
+                  <p className="font-heading text-2xl font-black tracking-tight text-[#E7A638]">{new Intl.NumberFormat('es-CO').format(item.creditAmount)}</p>
+                  <p className="mt-1 text-xs text-[#A3A3A3]">créditos demo</p>
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-bold tracking-wider text-[#777]">VALOR ILUSTRATIVO</p>
+                    <p className="mt-1 text-sm font-bold text-[#DDD]">COP ${new Intl.NumberFormat('es-CO').format(item.priceCop)}</p>
+                  </div>
+                  <span className="rounded-lg border border-[#176B45]/30 bg-[#176B45]/10 px-2.5 py-1.5 text-[9px] font-bold tracking-wider text-[#72D1A4]">$0 COBRADO</span>
+                </div>
+                <button type="button" disabled={!paymentConfig?.enabled || paymentBusy} onClick={() => void startDemoCheckout(item.id)} className="mt-5 w-full rounded-xl bg-[#D71920] px-4 py-3 text-[10px] font-black tracking-[0.14em] text-white shadow-lg shadow-[#D71920]/10 transition hover:bg-[#EB2028] disabled:cursor-not-allowed disabled:opacity-40">{paymentBusy ? 'PROCESANDO…' : paymentConfig?.mode === 'simulator' ? 'ELEGIR ESTE PAQUETE' : 'ABRIR PAGO SANDBOX'}</button>
               </article>)}
             </div>
 
-            {demoPayments.length > 0 && <div className="border-t border-[#2A2A2A] pt-4">
-              <h3 className="font-heading text-xs font-black tracking-widest">PAGOS DE PRUEBA RECIENTES</h3>
-              <div className="mt-3 space-y-2">{demoPayments.map(payment => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#2A2A2A] bg-[#101010] p-3">
-                <div>
-                  <p className="text-xs font-bold">{new Intl.NumberFormat('es-CO').format(payment.creditAmount)} créditos demo · COP ${new Intl.NumberFormat('es-CO').format(payment.priceCop)}</p>
-                  <p className="mt-1 text-[10px] text-[#888]">{payment.creditedAt ? 'APROBADO · CRÉDITOS DEMO AÑADIDOS' : payment.status === 'pending' ? 'PENDIENTE DE CONFIRMACIÓN' : payment.status.toUpperCase()} · {new Date(payment.createdAt).toLocaleString('es-CO')}</p>
-                </div>
-                {payment.status === 'pending' && <button type="button" onClick={() => void refreshDemoPayment(payment)} disabled={checkingPaymentId === payment.id} className="rounded-lg border border-[#555] px-3 py-2 text-[10px] font-black tracking-wider text-[#DDD] disabled:opacity-50">{checkingPaymentId === payment.id ? 'CONSULTANDO…' : 'VERIFICAR'}</button>}
-              </div>)}</div>
+            {demoPayments.length > 0 && <div className="border-t border-white/10 pt-5">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div><p className="text-[9px] font-black tracking-[0.18em] text-[#888]">ACTIVIDAD</p><h3 className="mt-1 font-heading text-sm font-black">Últimas simulaciones</h3></div>
+                <span className="text-[10px] text-[#777]">{demoPayments.length} recientes</span>
+              </div>
+              <div className="mt-3 divide-y divide-white/[0.06] rounded-xl border border-white/[0.08] bg-black/15 px-4">
+                {demoPayments.map(payment => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div><p className="text-xs font-semibold text-[#DDD]">{new Intl.NumberFormat('es-CO').format(payment.creditAmount)} créditos demo</p><p className="mt-1 text-[10px] text-[#777]">{new Date(payment.createdAt).toLocaleString('es-CO')}</p></div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-[9px] font-black tracking-wider ${payment.creditedAt ? 'bg-[#176B45]/15 text-[#72D1A4]' : payment.status === 'rejected' ? 'bg-[#D99024]/10 text-[#E7C58E]' : 'bg-white/10 text-[#AAA]'}`}>{payment.creditedAt ? 'APROBADO' : payment.status === 'rejected' ? 'RECHAZADO' : payment.status.toUpperCase()}</span>
+                    {payment.status === 'pending' && <button type="button" onClick={() => void refreshDemoPayment(payment)} disabled={checkingPaymentId === payment.id} className="rounded-lg border border-white/10 px-3 py-1.5 text-[9px] font-bold text-[#DDD] disabled:opacity-50">{checkingPaymentId === payment.id ? 'CONSULTANDO…' : 'VERIFICAR'}</button>}
+                  </div>
+                </div>)}
+              </div>
             </div>}
           </div>
         </section>
-        {selectedDemoPackage && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !paymentBusy) setSelectedDemoPackage(null) }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="demo-checkout-title" className="w-full max-w-md rounded-2xl border border-[#D99024]/40 bg-[#151515] p-6 shadow-2xl shadow-black/60">
-            <p className="text-[10px] font-black tracking-[0.22em] text-[#D99024]">CHECKOUT SIMULADO · SIN COBRO</p>
-            <h2 id="demo-checkout-title" className="mt-2 font-heading text-2xl font-black">Confirmar pago demo</h2>
-            <p className="mt-3 text-sm text-[#AAA]">{selectedDemoPackage.title} · {new Intl.NumberFormat('es-CO').format(selectedDemoPackage.creditAmount)} créditos ficticios</p>
-            <p className="mt-1 text-sm text-[#AAA]">Importe ilustrativo: COP ${new Intl.NumberFormat('es-CO').format(selectedDemoPackage.priceCop)} (no se cobra)</p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <button type="button" disabled={paymentBusy} onClick={() => void simulateDemoPayment('approved')} className="rounded-lg bg-[#176B45] px-4 py-3 text-xs font-black tracking-wider text-white disabled:opacity-50">{paymentBusy ? 'PROCESANDO…' : 'SIMULAR APROBADO'}</button>
-              <button type="button" disabled={paymentBusy} onClick={() => void simulateDemoPayment('rejected')} className="rounded-lg border border-[#555] px-4 py-3 text-xs font-black tracking-wider text-[#DDD] disabled:opacity-50">SIMULAR RECHAZADO</button>
+        {selectedDemoPackage && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !paymentBusy) setSelectedDemoPackage(null) }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="demo-checkout-title" className="w-full max-w-md overflow-hidden rounded-[24px] border border-white/10 bg-[#141416] shadow-2xl shadow-black/70">
+            <div className="border-b border-white/10 bg-gradient-to-br from-[#251611] to-[#141416] p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#D99024]/30 bg-[#D99024]/10 text-sm font-black text-[#E7A638]">D</div>
+                <span className="rounded-full border border-[#176B45]/30 bg-[#176B45]/10 px-3 py-1.5 text-[9px] font-black tracking-wider text-[#72D1A4]">SIMULACIÓN · $0</span>
+              </div>
+              <p className="mt-5 text-[9px] font-black tracking-[0.2em] text-[#E7A638]">CHECKOUT ACADÉMICO</p>
+              <h2 id="demo-checkout-title" className="mt-1 font-heading text-2xl font-black">Confirma tu paquete</h2>
             </div>
-            <button type="button" disabled={paymentBusy} onClick={() => setSelectedDemoPackage(null)} className="mt-3 w-full rounded-lg px-4 py-2 text-xs font-bold text-[#888] hover:text-white disabled:opacity-50">CANCELAR</button>
+            <div className="space-y-5 p-6">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-[#DDD]">{selectedDemoPackage.title}</p><p className="mt-1 text-[11px] text-[#888]">Créditos ficticios para la demostración</p></div><p className="text-right font-heading text-lg font-black text-[#E7A638]">{new Intl.NumberFormat('es-CO').format(selectedDemoPackage.creditAmount)}</p></div>
+                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-xs"><span className="text-[#888]">Importe ilustrativo</span><span className="font-semibold text-[#CCC]">COP ${new Intl.NumberFormat('es-CO').format(selectedDemoPackage.priceCop)} · no se cobra</span></div>
+              </div>
+              {paymentError && <p role="alert" className="rounded-xl border border-[#D71920]/30 bg-[#D71920]/[0.08] px-4 py-3 text-xs text-[#F5A0A3]">{paymentError}</p>}
+              <div>
+                <p className="mb-2 text-[9px] font-black tracking-[0.18em] text-[#888]">RESULTADO PARA LA PRESENTACIÓN</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" aria-pressed={demoOutcome === 'approved'} disabled={paymentBusy} onClick={() => setDemoOutcome('approved')} className={`rounded-xl border p-3 text-left transition ${demoOutcome === 'approved' ? 'border-[#176B45]/60 bg-[#176B45]/10' : 'border-white/10 bg-black/10 hover:border-white/20'}`}><span className={`text-xs font-bold ${demoOutcome === 'approved' ? 'text-[#72D1A4]' : 'text-[#BBB]'}`}>Aprobado</span><span className="mt-1 block text-[10px] leading-relaxed text-[#777]">Acredita los créditos demo</span></button>
+                  <button type="button" aria-pressed={demoOutcome === 'rejected'} disabled={paymentBusy} onClick={() => setDemoOutcome('rejected')} className={`rounded-xl border p-3 text-left transition ${demoOutcome === 'rejected' ? 'border-[#D99024]/50 bg-[#D99024]/[0.08]' : 'border-white/10 bg-black/10 hover:border-white/20'}`}><span className={`text-xs font-bold ${demoOutcome === 'rejected' ? 'text-[#E7C58E]' : 'text-[#BBB]'}`}>Rechazado</span><span className="mt-1 block text-[10px] leading-relaxed text-[#777]">No cambia tu saldo demo</span></button>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" disabled={paymentBusy} onClick={() => setSelectedDemoPackage(null)} className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-[10px] font-bold tracking-wider text-[#AAA] hover:text-white disabled:opacity-50">VOLVER</button>
+                <button type="button" disabled={paymentBusy} onClick={() => void simulateDemoPayment(demoOutcome)} className="flex-[1.4] rounded-xl bg-[#D71920] px-4 py-3 text-[10px] font-black tracking-wider text-white shadow-lg shadow-[#D71920]/15 hover:bg-[#EB2028] disabled:opacity-50">{paymentBusy ? 'PROCESANDO…' : 'SIMULAR PAGO'}</button>
+              </div>
+              <p className="text-center text-[10px] leading-relaxed text-[#666]">No se solicitan tarjetas, cuentas ni datos de pago.</p>
+            </div>
           </section>
         </div>}
         </>}
