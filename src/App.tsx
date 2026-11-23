@@ -115,7 +115,8 @@ export default function App() {
   const [betSaving, setBetSaving] = useState(false)
   const [wagerActionId, setWagerActionId] = useState<string | null>(null)
   const [activeBetFightId, setActiveBetFightId] = useState<string | null>(null)
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const shouldFollowChatRef = useRef(true)
   const streamFrameRef = useRef<HTMLIFrameElement>(null)
   const [streamMuted, setStreamMuted] = useState(true)
   const [mobileMenu, setMobileMenu] = useState(false)
@@ -148,7 +149,7 @@ export default function App() {
     if (view !== 'home') return
     let active = true
     const refreshChat = () => apiRequest<{ messages: ChatMessage[] }>('/chat/messages')
-      .then(data => { if (active) { setMessages(data.messages); setChatError('') } })
+      .then(data => { if (active) { replaceChatMessages(data.messages); setChatError('') } })
       .catch((error: Error) => { if (active) setChatError(error.message) })
     void refreshChat()
     const interval = window.setInterval(() => { void refreshChat() }, 2000)
@@ -173,8 +174,12 @@ export default function App() {
   })
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (view !== 'home' || !shouldFollowChatRef.current) return
+    const chat = chatScrollRef.current
+    if (!chat) return
+    chat.scrollTop = chat.scrollHeight
+    shouldFollowChatRef.current = true
+  }, [messages, view])
 
   useEffect(() => {
     if (sessionStorage.getItem('gallerapp_token')) {
@@ -303,12 +308,20 @@ export default function App() {
       await apiRequest<{ message: ChatMessage }>('/chat/messages', { message }, 'POST')
       setChatInput('')
       const data = await apiRequest<{ messages: ChatMessage[] }>('/chat/messages')
-      setMessages(data.messages)
+      replaceChatMessages(data.messages)
     } catch (error) {
       setChatError(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.')
     } finally {
       setChatSending(false)
     }
+  }
+
+  function replaceChatMessages(nextMessages: ChatMessage[]) {
+    setMessages(current => {
+      const unchanged = current.length === nextMessages.length
+        && current.every((message, index) => message.id === nextMessages[index]?.id && message.msg === nextMessages[index]?.msg)
+      return unchanged ? current : nextMessages
+    })
   }
 
   async function refreshWagers() {
@@ -635,7 +648,14 @@ export default function App() {
               <span title="Los mensajes se eliminan automáticamente después de 24 horas" className="ml-auto text-[10px] font-heading text-[#A3A3A3]">Historial: 24 h</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0">
+            <div
+              ref={chatScrollRef}
+              onScroll={event => {
+                const chat = event.currentTarget
+                shouldFollowChatRef.current = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 48
+              }}
+              className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0"
+            >
               {messages.map(msg => (
                 <div key={msg.id} className="flex gap-2 group">
                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#D71920] to-[#7A3E20] flex items-center justify-center text-[9px] font-heading font-black flex-shrink-0 mt-0.5">
@@ -654,7 +674,6 @@ export default function App() {
               ))}
               {messages.length === 0 && <p className="py-4 text-center text-xs text-[#777]">Sé el primero en escribir.</p>}
               {chatError && <p role="alert" className="text-[10px] text-[#F58A8E]">{chatError}</p>}
-              <div ref={chatEndRef} />
             </div>
 
             <div className="p-3 border-t border-[#2A2A2A] flex gap-2 flex-shrink-0">
