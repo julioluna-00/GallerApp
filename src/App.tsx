@@ -519,7 +519,7 @@ export default function App() {
 
           {/* VIDEO PLAYER — 65% */}
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className="relative rounded-xl overflow-hidden bg-[#0F0F0F] border border-[#2A2A2A] shadow-2xl shadow-black/60 flex flex-col" style={{ height: '460px' }}>
+            <div className="relative rounded-xl overflow-hidden bg-[#0F0F0F] border border-[#2A2A2A] shadow-2xl shadow-black/60 flex flex-col" style={{ height: '500px' }}>
 
               {/* Video area */}
               <div className="relative flex-1 bg-[#080808] overflow-hidden">
@@ -594,6 +594,11 @@ export default function App() {
                   </button>
                 </div>}
               </div>
+              <div aria-label="Sponsors por el momento" className="flex h-9 shrink-0 items-center justify-center gap-2 border-t border-[#1F1F1F] bg-[#0C0C0C]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#D99024]" aria-hidden="true" />
+                <span className="text-[9px] font-heading font-black tracking-[0.18em] text-[#D99024]">SPONSORS</span>
+                <span className="text-[10px] text-[#666]">por el momento</span>
+              </div>
             </div>
           </div>
 
@@ -604,24 +609,6 @@ export default function App() {
             <span className="text-xs font-black tracking-wider text-[#D71920]">IR A PELEAS Y RETOS DEMO →</span>
           </button>
         </div>
-        <section aria-labelledby="sponsors-title" className="mb-5 rounded-xl border border-[#2A2A2A] bg-[#121212] p-4 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-            <div className="shrink-0 lg:w-52">
-              <p className="text-[9px] font-black tracking-[0.22em] text-[#D99024]">ALIADOS DE GALLERAPP</p>
-              <h2 id="sponsors-title" className="mt-1 font-heading text-base font-black">Nuestros patrocinadores</h2>
-              <p className="mt-1 text-[11px] text-[#777]">Gracias por apoyar la transmisión.</p>
-            </div>
-            <div className="grid flex-1 gap-2 sm:grid-cols-3">
-              {[1, 2, 3].map(slot => <div key={slot} className="flex min-h-[68px] items-center gap-3 rounded-lg border border-dashed border-[#383838] bg-[#0D0D0D] px-3 py-2.5">
-                <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-md border border-white/[0.06] bg-[#171717] text-[8px] font-black tracking-wider text-[#555]">LOGO</div>
-                <div className="min-w-0">
-                  <p className="text-[8px] font-black tracking-[0.16em] text-[#D99024]/80">PATROCINADOR {String(slot).padStart(2, '0')}</p>
-                  <p className="mt-1 truncate text-[11px] font-semibold text-[#777]">Nombre de la marca</p>
-                </div>
-              </div>)}
-            </div>
-          </div>
-        </section>
         {/* ─── FIGHT INFO ─── */}
         <div className="mb-5 p-5 bg-[#171717] rounded-xl border border-[#2A2A2A] flex items-center gap-6 flex-wrap">
           <div className="flex items-center gap-3"><span className="font-heading font-black text-2xl text-[#D71920]">{featuredFight ? `#${String(featuredFight.number).padStart(3, '0')}` : '—'}</span></div>
