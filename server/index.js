@@ -44,6 +44,7 @@ const DEMO_PAYMENT_PACKAGES = [
   { id: 'demo-credits-small', title: 'Paquete demo inicial', creditAmount: 10000, priceCop: 1000 },
   { id: 'demo-credits-large', title: 'Paquete demo ampliado', creditAmount: 60000, priceCop: 5000 },
 ]
+const DEMO_PAYMENT_MODE = MP_TEST_ACCESS_TOKEN && MP_TEST_WEBHOOK_SECRET ? 'sandbox' : 'simulator'
 
 const defaultEvents = [
   { id: '1', name: 'Gran Derby GallerApp', date: '2026-03-07', time: '7:30 PM', arena: 'Principal', fights: 14, status: 'live', prize: 25000000 },
@@ -311,6 +312,7 @@ function demoPaymentView(payment) {
     creditAmount: payment.creditAmount,
     priceCop: payment.priceCop,
     status: payment.status,
+    provider: payment.provider || 'mercado-pago-sandbox',
     createdAt: payment.createdAt,
     approvedAt: payment.approvedAt || null,
     creditedAt: payment.creditedAt || null,
@@ -528,10 +530,50 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && path === '/api/payments/demo/config') {
       return respond(res, 200, {
-        provider: 'Mercado Pago · modo de prueba',
-        enabled: Boolean(MP_TEST_ACCESS_TOKEN && MP_TEST_WEBHOOK_SECRET),
+        mode: DEMO_PAYMENT_MODE,
+        provider: DEMO_PAYMENT_MODE === 'sandbox' ? 'Mercado Pago · modo Sandbox' : 'Simulador académico · sin cobro real',
+        enabled: true,
         packages: DEMO_PAYMENT_PACKAGES.map(({ id, title, creditAmount, priceCop }) => ({ id, title, creditAmount, priceCop })),
       })
+    }
+    if (req.method === 'POST' && path === '/api/payments/demo/simulate') {
+      const user = await authenticatedUser(req)
+      if (!user) return respond(res, 401, { message: 'Inicia sesión para simular un pago demo.' })
+      if (DEMO_PAYMENT_MODE !== 'simulator') return respond(res, 409, { message: 'El simulador local no está activo mientras está configurado el checkout Sandbox.' })
+      const input = await bodyOf(req)
+      const selectedPackage = DEMO_PAYMENT_PACKAGES.find(item => item.id === input.packageId)
+      if (!selectedPackage) return respond(res, 400, { message: 'Selecciona uno de los paquetes demo disponibles.' })
+      if (!['approved', 'rejected'].includes(input.outcome)) return respond(res, 400, { message: 'Selecciona un resultado aprobado o rechazado para la simulación.' })
+
+      const result = await withUserMutationLock(async () => {
+        const users = await readUsers()
+        const storedUser = users.find(item => item.id === user.id)
+        if (!storedUser) return null
+        const now = new Date().toISOString()
+        const payment = {
+          id: randomBytes(18).toString('hex'),
+          packageId: selectedPackage.id,
+          creditAmount: selectedPackage.creditAmount,
+          priceCop: selectedPackage.priceCop,
+          provider: 'simulator',
+          status: input.outcome,
+          createdAt: now,
+          updatedAt: now,
+        }
+        if (input.outcome === 'approved') {
+          storedUser.saldo = (Number(storedUser.saldo) || 0) + selectedPackage.creditAmount
+          payment.approvedAt = now
+          payment.creditedAt = now
+        }
+        storedUser.demoPayments = [...(storedUser.demoPayments || []), payment].slice(-30)
+        await saveUsers(users)
+        return {
+          payment: demoPaymentView(payment),
+          profile: { ...publicUser(storedUser), profileImage: storedUser.profileImage || '' },
+        }
+      })
+      if (!result) return respond(res, 404, { message: 'No se encontró tu cuenta.' })
+      return respond(res, 201, result)
     }
     if (req.method === 'POST' && path === '/api/payments/demo/checkout') {
       const user = await authenticatedUser(req)
