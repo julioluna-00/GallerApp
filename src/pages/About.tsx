@@ -17,33 +17,33 @@ interface AboutProps {
 const stats = [
   { value: '+50', label: 'peleas por semana' },
   { value: 'HD', label: 'transmisión en vivo' },
-  { value: 'Rápido', label: 'retiro de ganancias' },
-  { value: '24/7', label: 'soporte al jugador' },
+  { value: 'DEMO', label: 'créditos ficticios' },
+  { value: '0', label: 'pagos reales' },
 ]
 
 const benefits = [
   {
     number: '01',
     title: 'Directo sin retrasos',
-    description: 'Cámaras en el palenque y apuestas abiertas mientras se prepara cada pelea.',
+    description: 'Cámaras en el palenque y retos de demostración mientras se prepara cada pelea.',
   },
   {
     number: '02',
-    title: 'Retos entre usuarios',
-    description: 'Eliges un gallo y un monto; otra persona acepta la misma cantidad por el rival. Puedes publicar varios retos.',
+    title: 'Simulación 1 vs 1',
+    description: 'Eliges un gallo y una cantidad de créditos ficticios; otra persona puede probar el reto por el rival.',
   },
   {
     number: '03',
-    title: 'Pagos ágiles',
-    description: 'Deposita y retira tus ganancias con métodos locales de uso común.',
+    title: 'Sin dinero real',
+    description: 'Los créditos demo no tienen valor monetario. No hay depósitos, compras ni retiros.',
   },
 ]
 
 const steps = [
   { title: 'Regístrate', description: 'Crea tu cuenta con tus datos reales.' },
-  { title: 'Verifica', description: 'Confirmamos que eres mayor de edad.' },
-  { title: 'Recarga', description: 'Elige tu monto y método de pago.' },
-  { title: 'Apuesta en vivo', description: 'Publica o acepta un reto por el gallo que apoyas antes de que inicie la pelea.' },
+  { title: 'Entra al demo', description: 'Explora la plataforma de demostración.' },
+  { title: 'Usa créditos ficticios', description: 'Tu saldo de prueba no se compra ni se canjea por dinero.' },
+  { title: 'Prueba un reto', description: 'Simula un reto 1 vs 1 antes de que inicie la pelea.' },
 ]
 
 export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, onGoRegisterRooster, onGoRoosterDirectory, onGoAdmin, onGoLogin, onGoRegister, onGoProfile, onLogout }: AboutProps) {
@@ -147,11 +147,11 @@ export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, 
               </div>
               <h1 className="max-w-3xl font-heading text-4xl font-black uppercase leading-[1.03] tracking-tight text-[#F5F5F5] md:text-6xl">
                 Siente el ruedo.
-                <span className="block text-[#D99024]">Apuesta en tiempo real.</span>
+                <span className="block text-[#D99024]">Prueba retos en modo demo.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-base leading-8 text-[#A3A3A3] md:text-lg">
-                Somos la plataforma que lleva las peleas en directo a tu pantalla: cámaras en el
-                palenque y retos de apuesta entre usuarios: acuerda el mismo monto con otra persona y sigue el resultado en directo.
+                Llevamos las peleas en directo a tu pantalla y te permitimos probar retos entre usuarios
+                con créditos ficticios sin valor monetario.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <button
@@ -204,8 +204,8 @@ export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, 
                 a cualquier lugar, sin perder la esencia de la tradición.
               </p>
               <p className="mt-4 leading-8 text-[#A3A3A3]">
-                Hoy transmitimos en vivo desde la gallera, con imagen nítida y apuestas que se abren
-                y cierran en el momento justo, para que sientas que estás en primera fila.
+                Hoy transmitimos en vivo desde la gallera, con imagen nítida y retos demo que se abren
+                y cierran según el estado de cada combate.
               </p>
             </article>
             <article className="border-l border-[#2A2A2A] md:pl-12">
@@ -213,12 +213,12 @@ export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, 
                 Lo que nos <span className="text-[#D99024]">mueve</span>
               </h2>
               <p className="mt-6 leading-8 text-[#A3A3A3]">
-                Respeto por la tradición, claridad en los retos entre usuarios y trato cercano con cada
-                jugador. Aquí no eres un número: eres parte de la afición.
+                Respeto por la tradición, claridad en las funciones de demostración y trato cercano con
+                cada aficionado. Aquí no eres un número: eres parte de la afición.
               </p>
               <p className="mt-4 leading-8 text-[#A3A3A3]">
-                Nuestro equipo de atención responde rápido, y nuestros pagos se procesan sin vueltas
-                ni letra pequeña.
+                Esta versión no procesa pagos ni maneja dinero real: todos los saldos son créditos ficticios
+                para probar la experiencia.
               </p>
             </article>
           </div>
@@ -270,7 +270,7 @@ export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, 
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-[#A3A3A3]">
-              En cuatro pasos tendrás acceso a la cartelera, la transmisión y las apuestas en vivo.
+              Explora la cartelera y prueba las funciones con créditos sin valor monetario.
             </p>
           </div>
           <ol className="mt-10 grid gap-4 md:grid-cols-4">
@@ -294,11 +294,10 @@ export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, 
               <span className="font-heading text-lg font-black text-[#4FA77C]">18+</span>
             </div>
             <div>
-              <h2 className="font-heading text-xl font-black uppercase">Juega con responsabilidad</h2>
+              <h2 className="font-heading text-xl font-black uppercase">Modo de demostración</h2>
               <p className="mt-2 max-w-5xl text-sm leading-6 text-[#A3A3A3]">
-                Solo para mayores de 18 años. Apuesta únicamente dinero que puedas permitirte perder,
-                fija tus propios límites y no persigas pérdidas. Si el juego deja de ser diversión,
-                escríbenos para activar una pausa o autoexclusión.
+                Esta versión utiliza créditos ficticios que no equivalen a dinero, no se pueden comprar
+                ni canjear y no permite depósitos ni retiros reales. La plataforma no procesa pagos.
               </p>
             </div>
           </div>
@@ -335,7 +334,7 @@ export default function About({ signedInUser, onBack, onGoEvents, onGoRoosters, 
             </span>
           </button>
           <p className="font-heading text-[10px] tracking-widest text-[#555]">
-            © 2026 GallerApp · SOLO MAYORES DE 18 AÑOS · JUEGA CON RESPONSABILIDAD
+            © 2026 GallerApp · MODO DEMO · CRÉDITOS SIN VALOR MONETARIO · SIN PAGOS REALES
           </p>
         </div>
       </footer>

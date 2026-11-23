@@ -30,15 +30,15 @@ function formatEventDate(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function formatCOP(amount: number) {
-  return `$${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)}`
+function formatDemoCredits(amount: number) {
+  return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)} créditos demo`
 }
 
 function BalanceChip({ amount }: { amount: number }) {
-  return <div aria-label={`Saldo actual: ${formatCOP(amount)}`} className="flex items-center gap-2 rounded-lg border border-[#D99024]/30 bg-[#D99024]/10 px-3 py-2">
-    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#D99024] text-[10px] font-black text-[#111]">$</span>
-    <span className="text-[9px] font-black tracking-widest text-[#A3A3A3]">SALDO</span>
-    <span className="text-xs font-heading font-black text-[#D99024]">{formatCOP(amount)}</span>
+  return <div aria-label={`Saldo demo: ${formatDemoCredits(amount)}, sin valor monetario`} title="Créditos ficticios de demostración, sin valor monetario" className="flex items-center gap-2 rounded-lg border border-[#D99024]/30 bg-[#D99024]/10 px-3 py-2">
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#D99024] text-[9px] font-black text-[#111]">D</span>
+    <span className="text-[9px] font-black tracking-widest text-[#A3A3A3]">DEMO</span>
+    <span className="text-xs font-heading font-black text-[#D99024]">{new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(amount)} cr.</span>
   </div>
 }
 
@@ -318,10 +318,10 @@ export default function App() {
   async function createWager(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const targetFight = view === 'fights' ? activeBetFight : homeWagerFight
-    if (!targetFight || !signedInUser || !betSelected) { setBetError('Inicia sesión y selecciona el gallo por el que quieres apostar.'); return }
-    if (targetFight.status !== 'upcoming') { setBetError('Las apuestas se cierran cuando inicia el combate.'); return }
+    if (!targetFight || !signedInUser || !betSelected) { setBetError('Inicia sesión y selecciona el gallo para el reto demo.'); return }
+    if (targetFight.status !== 'upcoming') { setBetError('Los retos demo se cierran cuando inicia el combate.'); return }
     const amount = Number(betAmount)
-    if (!Number.isSafeInteger(amount) || amount < 1000 || amount > (signedInUser.saldo ?? 0)) { setBetError('El monto debe ser de al menos $1.000 y no superar tu saldo.'); return }
+    if (!Number.isSafeInteger(amount) || amount < 1000 || amount > (signedInUser.saldo ?? 0)) { setBetError('La cantidad debe ser de al menos 1.000 créditos demo y no superar tu saldo de prueba.'); return }
     setBetSaving(true)
     setBetError('')
     setBetNotice('')
@@ -330,10 +330,10 @@ export default function App() {
       const result = await apiRequest<{ wager: FightWager; user: GallerUser }>('/wagers', { fightId: targetFight.id, roosterId, amount }, 'POST')
       setSignedInUser(result.user)
       await refreshWagers()
-      setBetNotice(`Propuesta publicada por ${formatCOP(result.wager.amount)}. Ese monto queda reservado hasta que alguien la acepte o la canceles.`)
+      setBetNotice(`Propuesta demo publicada por ${formatDemoCredits(result.wager.amount)}. Esos créditos ficticios quedan reservados hasta que alguien la acepte o la canceles.`)
       setBetSelected(null)
     } catch (error) {
-      setBetError(error instanceof Error ? error.message : 'No se pudo publicar la propuesta.')
+      setBetError(error instanceof Error ? error.message : 'No se pudo publicar el reto demo.')
     } finally { setBetSaving(false) }
   }
 
@@ -345,9 +345,9 @@ export default function App() {
       const result = await apiRequest<{ wager: FightWager; user: GallerUser }>(`/wagers/${wagerId}/accept`, {}, 'POST')
       setSignedInUser(result.user)
       await refreshWagers()
-      setBetNotice(`Aceptaste la apuesta de ${formatCOP(result.wager.amount)}. Tu dinero quedó reservado hasta el resultado.`)
+      setBetNotice(`Aceptaste el reto demo por ${formatDemoCredits(result.wager.amount)}. Esos créditos ficticios quedan reservados hasta el resultado.`)
     } catch (error) {
-      setBetError(error instanceof Error ? error.message : 'No se pudo aceptar la apuesta.')
+      setBetError(error instanceof Error ? error.message : 'No se pudo aceptar el reto demo.')
     } finally { setWagerActionId(null) }
   }
 
@@ -359,7 +359,7 @@ export default function App() {
       const result = await apiRequest<{ wager: FightWager; user: GallerUser }>(`/wagers/${wagerId}`, undefined, 'DELETE')
       setSignedInUser(result.user)
       await refreshWagers()
-      setBetNotice('Propuesta cancelada; el saldo reservado volvió a tu cuenta.')
+      setBetNotice('Reto demo cancelado; los créditos de prueba reservados volvieron a tu saldo.')
     } catch (error) {
       setBetError(error instanceof Error ? error.message : 'No se pudo cancelar la propuesta.')
     } finally { setWagerActionId(null) }
@@ -372,7 +372,7 @@ export default function App() {
           <button onClick={() => setView('home')} className="flex items-center gap-3"><RoosterLogo size={36} /><span className="font-heading text-lg font-black tracking-wider">GALLER<span className="text-[#D71920]">APP</span></span></button>
           <nav aria-label="Navegación principal" className="flex items-center gap-2">
             <button onClick={() => setView('home')} className="rounded-lg border border-[#333] px-3 py-2 text-xs font-black tracking-wider text-[#A3A3A3] hover:text-white">TRANSMISIÓN</button>
-            <span className="rounded-lg bg-[#D71920] px-3 py-2 text-xs font-black tracking-wider text-white">PELEAS Y APUESTAS</span>
+            <span className="rounded-lg bg-[#D71920] px-3 py-2 text-xs font-black tracking-wider text-white">PELEAS · DEMO</span>
           </nav>
           {signedInUser ? <div className="flex items-center gap-2"><BalanceChip amount={signedInUser.saldo ?? 0} /><button onClick={() => setView('profile')} className="hidden rounded-lg border border-[#333] px-3 py-2 text-xs font-bold text-[#A3A3A3] hover:text-white sm:block">MI PERFIL</button></div> : <button onClick={() => setView('login')} className="rounded-lg border border-[#333] px-3 py-2 text-xs font-bold text-[#A3A3A3] hover:text-white">ENTRAR</button>}
         </div>
@@ -380,8 +380,9 @@ export default function App() {
       <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
         <div className="mb-6">
           <p className="text-[10px] font-black tracking-[0.25em] text-[#D71920]">CARTELERA</p>
-          <h1 className="mt-1 font-heading text-2xl font-black sm:text-3xl">Peleas, resultados y apuestas</h1>
-          <p className="mt-2 text-sm text-[#A3A3A3]">Consulta el historial y apuesta en los combates programados antes de que inicien.</p>
+          <h1 className="mt-1 font-heading text-2xl font-black sm:text-3xl">Peleas, resultados y retos demo</h1>
+          <p className="mt-2 text-sm text-[#A3A3A3]">Consulta el historial y prueba retos entre usuarios con créditos ficticios.</p>
+          <p className="mt-3 rounded-lg border border-[#D99024]/40 bg-[#D99024]/10 px-4 py-3 text-xs leading-5 text-[#E9C27D]">MODO DEMO: los créditos no son dinero y no se pueden comprar ni canjear. No hay depósitos ni retiros reales.</p>
         </div>
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <section className="rounded-2xl border border-[#2A2A2A] bg-[#111] p-4 sm:p-5">
@@ -398,35 +399,35 @@ export default function App() {
           </section>
           <aside className="space-y-4">
             <section className="rounded-2xl border border-[#2A2A2A] bg-[#111] p-5">
-              <h2 className="font-heading text-sm font-black tracking-widest">APUESTAS 1 VS 1</h2>
+              <h2 className="font-heading text-sm font-black tracking-widest">RETOS DEMO 1 VS 1</h2>
               {activeBetFight ? <>
                 <p className="mt-2 text-xs text-[#A3A3A3]">Pelea #{String(activeBetFight.number).padStart(3, '0')} · {activeBetFight.eventName}</p>
-                {activeBetFight.status === 'live' ? <div className="mt-4 rounded-xl border border-[#D71920]/40 bg-[#D71920]/10 p-4"><p className="text-xs font-black tracking-wider text-[#F58A8E]">APUESTAS CERRADAS</p><p className="mt-2 text-xs text-[#A3A3A3]">El combate ya inició. Las propuestas sin aceptar fueron devueltas.</p></div>
+                {activeBetFight.status === 'live' ? <div className="mt-4 rounded-xl border border-[#D71920]/40 bg-[#D71920]/10 p-4"><p className="text-xs font-black tracking-wider text-[#F58A8E]">RETOS DEMO CERRADOS</p><p className="mt-2 text-xs text-[#A3A3A3]">El combate ya inició. Los créditos demo de retos sin aceptar fueron devueltos.</p></div>
                   : activeBetFight.status === 'finished' ? <div className="mt-4 rounded-xl border border-[#176B45]/40 bg-[#176B45]/10 p-4"><p className="text-xs font-black tracking-wider text-[#72D1A4]">COMBATE FINALIZADO</p><p className="mt-2 text-sm font-bold">Ganador: {activeBetFight.winnerRoosterName}</p></div>
                   : signedInUser ? <form onSubmit={createWager} className="mt-4 space-y-3 rounded-xl border border-[#2A2A2A] bg-[#0B0B0B] p-4">
-                    <p className="text-xs text-[#A3A3A3]">Publica un reto: otra persona acepta con el mismo monto y el gallo contrario. Puedes crear varias propuestas.</p>
-                    <p className="text-xs text-[#888]">Saldo disponible: {formatCOP(signedInUser.saldo ?? 0)} · mínimo {formatCOP(1000)}</p>
-                    <div className="grid grid-cols-2 gap-2">{[activeBetFight.roosterA, activeBetFight.roosterB].map((rooster, index) => { const side = index === 0 ? 'a' : 'b'; const selected = betSelected === side; return <button key={rooster.id} type="button" onClick={() => { setBetSelected(side); setBetError(''); setBetNotice('') }} aria-pressed={selected} className={`rounded-lg border p-3 text-left ${selected ? 'border-[#D71920] bg-[#D71920]/15' : 'border-[#333] bg-[#111]'}`}><span className="block text-[9px] font-black tracking-widest text-[#888]">APUESTAS POR GALLO {index === 0 ? 'A' : 'B'}</span><span className="mt-1 block truncate text-xs font-bold">{rooster.name}</span></button> })}</div>
-                    <label className="block text-[10px] font-bold tracking-widest text-[#A3A3A3]">MONTO APOSTADO<input type="number" min="1000" step="1000" max={signedInUser.saldo ?? 0} required value={betAmount} onChange={event => setBetAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-[#333] bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D71920]" /></label>
-                    <p className="text-[10px] text-[#888]">A quien acepte le corresponderá el mismo monto. Pozo total: {formatCOP(Math.max(0, Number(betAmount) || 0) * 2)}.</p>
+                    <p className="text-xs text-[#A3A3A3]">Publica un reto demo: otra persona lo acepta con la misma cantidad de créditos ficticios y el gallo contrario.</p>
+                    <p className="text-xs text-[#888]">Créditos demo disponibles: {formatDemoCredits(signedInUser.saldo ?? 0)} · mínimo {formatDemoCredits(1000)}</p>
+                    <div className="grid grid-cols-2 gap-2">{[activeBetFight.roosterA, activeBetFight.roosterB].map((rooster, index) => { const side = index === 0 ? 'a' : 'b'; const selected = betSelected === side; return <button key={rooster.id} type="button" onClick={() => { setBetSelected(side); setBetError(''); setBetNotice('') }} aria-pressed={selected} className={`rounded-lg border p-3 text-left ${selected ? 'border-[#D71920] bg-[#D71920]/15' : 'border-[#333] bg-[#111]'}`}><span className="block text-[9px] font-black tracking-widest text-[#888]">RETO POR GALLO {index === 0 ? 'A' : 'B'}</span><span className="mt-1 block truncate text-xs font-bold">{rooster.name}</span></button> })}</div>
+                    <label className="block text-[10px] font-bold tracking-widest text-[#A3A3A3]">CRÉDITOS DE PRUEBA<input type="number" min="1000" step="1000" max={signedInUser.saldo ?? 0} required value={betAmount} onChange={event => setBetAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-[#333] bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D71920]" /></label>
+                    <p className="text-[10px] text-[#888]">Quien acepte usará la misma cantidad de créditos ficticios. Total demo: {formatDemoCredits(Math.max(0, Number(betAmount) || 0) * 2)}.</p>
                     {betError && <p role="alert" className="text-xs text-[#F58A8E]">{betError}</p>}{betNotice && <p role="status" className="text-xs text-[#72D1A4]">{betNotice}</p>}
-                    <button type="submit" disabled={betSaving || !betSelected || Number(betAmount) < 1000 || Number(betAmount) > (signedInUser.saldo ?? 0)} className="w-full rounded-lg bg-[#D71920] px-3 py-3 text-[10px] font-black tracking-widest text-white disabled:opacity-50">{betSaving ? 'PUBLICANDO…' : 'PUBLICAR PROPUESTA'}</button>
-                  </form> : <button onClick={() => setView('login')} className="mt-4 w-full rounded-xl border border-[#D71920]/40 bg-[#171717] p-4 text-left text-xs font-bold text-white">Inicia sesión para proponer o aceptar apuestas.</button>}
+                    <button type="submit" disabled={betSaving || !betSelected || Number(betAmount) < 1000 || Number(betAmount) > (signedInUser.saldo ?? 0)} className="w-full rounded-lg bg-[#D71920] px-3 py-3 text-[10px] font-black tracking-widest text-white disabled:opacity-50">{betSaving ? 'PUBLICANDO…' : 'PUBLICAR RETO DEMO'}</button>
+                  </form> : <button onClick={() => setView('login')} className="mt-4 w-full rounded-xl border border-[#D71920]/40 bg-[#171717] p-4 text-left text-xs font-bold text-white">Inicia sesión para proponer o aceptar retos demo.</button>}
               </> : <p className="mt-3 text-sm text-[#A3A3A3]">No hay una pelea seleccionada.</p>}
 
               {activeBetFight && activeBetFight.status !== 'finished' && <div className="mt-5 border-t border-[#2A2A2A] pt-4">
-                <div className="mb-3 flex items-center justify-between"><h3 className="text-[10px] font-black tracking-widest text-[#A3A3A3]">PROPUESTAS DE ESTA PELEA</h3><span className="text-[10px] text-[#888]">{openWagers.filter(wager => wager.fightId === activeBetFight.id).length}</span></div>
+                <div className="mb-3 flex items-center justify-between"><h3 className="text-[10px] font-black tracking-widest text-[#A3A3A3]">RETOS DE ESTA PELEA</h3><span className="text-[10px] text-[#888]">{openWagers.filter(wager => wager.fightId === activeBetFight.id).length}</span></div>
                 <div className="space-y-2">{openWagers.filter(wager => wager.fightId === activeBetFight.id).map(wager => <article key={wager.id} className="rounded-xl border border-[#2A2A2A] bg-[#0B0B0B] p-3">
-                  <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[10px] text-[#888]">{wager.status === 'open' ? 'RETO ABIERTO' : 'APUESTA ACEPTADA'}</p><p className="mt-1 text-xs font-bold"><span className="text-white">{wager.creatorName}</span> · {wager.creatorRoosterName}</p>{wager.status === 'accepted' && <p className="mt-1 text-xs font-bold"><span className="text-white">{wager.accepterName}</span> · {wager.accepterRoosterName}</p>}</div><span className="shrink-0 text-xs font-black text-[#D99024]">{formatCOP(wager.amount)} c/u</span></div>
+                  <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[10px] text-[#888]">{wager.status === 'open' ? 'RETO DEMO ABIERTO' : 'RETO DEMO ACEPTADO'}</p><p className="mt-1 text-xs font-bold"><span className="text-white">{wager.creatorName}</span> · {wager.creatorRoosterName}</p>{wager.status === 'accepted' && <p className="mt-1 text-xs font-bold"><span className="text-white">{wager.accepterName}</span> · {wager.accepterRoosterName}</p>}</div><span className="shrink-0 text-xs font-black text-[#D99024]">{formatDemoCredits(wager.amount)} por persona</span></div>
                   {wager.status === 'open' && activeBetFight.status === 'upcoming' && signedInUser && (wager.isMine
-                    ? <button type="button" onClick={() => void cancelWager(wager.id)} disabled={wagerActionId === wager.id} className="mt-3 w-full rounded-lg border border-[#555] px-3 py-2 text-[10px] font-black tracking-wider text-[#A3A3A3] disabled:opacity-50">{wagerActionId === wager.id ? 'PROCESANDO…' : 'CANCELAR MI PROPUESTA'}</button>
-                    : <button type="button" onClick={() => void acceptWager(wager.id)} disabled={wagerActionId === wager.id} className="mt-3 w-full rounded-lg bg-[#176B45] px-3 py-2.5 text-[10px] font-black tracking-wider text-white disabled:opacity-50">{wagerActionId === wager.id ? 'PROCESANDO…' : `ACEPTAR POR ${formatCOP(wager.amount)}`}</button>)}
-                </article>)}{openWagers.filter(wager => wager.fightId === activeBetFight.id).length === 0 && <p className="rounded-lg border border-dashed border-[#333] p-3 text-center text-xs text-[#777]">Todavía no hay retos. Publica el primero.</p>}</div>
+                    ? <button type="button" onClick={() => void cancelWager(wager.id)} disabled={wagerActionId === wager.id} className="mt-3 w-full rounded-lg border border-[#555] px-3 py-2 text-[10px] font-black tracking-wider text-[#A3A3A3] disabled:opacity-50">{wagerActionId === wager.id ? 'PROCESANDO…' : 'CANCELAR MI RETO DEMO'}</button>
+                    : <button type="button" onClick={() => void acceptWager(wager.id)} disabled={wagerActionId === wager.id} className="mt-3 w-full rounded-lg bg-[#176B45] px-3 py-2.5 text-[10px] font-black tracking-wider text-white disabled:opacity-50">{wagerActionId === wager.id ? 'PROCESANDO…' : `ACEPTAR POR ${formatDemoCredits(wager.amount)}`}</button>)}
+                </article>)}{openWagers.filter(wager => wager.fightId === activeBetFight.id).length === 0 && <p className="rounded-lg border border-dashed border-[#333] p-3 text-center text-xs text-[#777]">Todavía no hay retos demo. Publica el primero.</p>}</div>
                 {betError && <p role="alert" className="mt-3 text-xs text-[#F58A8E]">{betError}</p>}{betNotice && <p role="status" className="mt-3 text-xs text-[#72D1A4]">{betNotice}</p>}
               </div>}
             </section>
 
-            <section className="rounded-2xl border border-[#2A2A2A] bg-[#111] p-5"><h2 className="font-heading text-xs font-black tracking-widest">MIS APUESTAS</h2>{signedInUser && myWagers.length ? <div className="mt-3 max-h-[420px] space-y-3 overflow-y-auto">{[...myWagers].reverse().map(wager => <div key={wager.id} className="border-t border-[#292929] pt-3 first:border-0 first:pt-0"><p className="text-xs font-bold">Pelea #{String(wager.fightNumber).padStart(3, '0')} · {wager.eventName}</p><p className="mt-1 text-[10px] text-[#A3A3A3]">{wager.creatorRoosterName} · {formatCOP(wager.amount)} por persona</p><p className={`mt-1 text-[10px] font-black ${wager.status === 'settled' ? wager.winningUserId === signedInUser.id ? 'text-[#72D1A4]' : 'text-[#F58A8E]' : wager.status === 'cancelled' ? 'text-[#888]' : 'text-[#D99024]'}`}>{wager.status === 'open' ? 'RETO ABIERTO · monto reservado' : wager.status === 'accepted' ? `ACEPTADA · ${wager.accepterName} tomó el otro lado` : wager.status === 'settled' ? wager.winningUserId === signedInUser.id ? `GANASTE · premio ${formatCOP(wager.paidOut ?? wager.amount * 2)}` : `PERDISTE · ganó ${wager.winningName || 'la otra persona'}` : `CANCELADA${wager.cancelReason === 'fight_started' ? ' · monto devuelto al iniciar' : wager.cancelReason === 'fight_cancelled' ? ' · monto devuelto al cancelar la pelea' : wager.cancelReason === 'fight_finished_without_acceptance' ? ' · monto devuelto, no fue aceptada' : wager.cancelReason === 'event_cancelled' ? ' · monto devuelto al cancelar el evento' : ''}`}</p></div>)}</div> : <p className="mt-3 text-xs text-[#888]">{signedInUser ? 'Todavía no tienes propuestas ni apuestas.' : 'Inicia sesión para consultar tus apuestas.'}</p>}</section>
+            <section className="rounded-2xl border border-[#2A2A2A] bg-[#111] p-5"><h2 className="font-heading text-xs font-black tracking-widest">MIS RETOS DEMO</h2>{signedInUser && myWagers.length ? <div className="mt-3 max-h-[420px] space-y-3 overflow-y-auto">{[...myWagers].reverse().map(wager => <div key={wager.id} className="border-t border-[#292929] pt-3 first:border-0 first:pt-0"><p className="text-xs font-bold">Pelea #{String(wager.fightNumber).padStart(3, '0')} · {wager.eventName}</p><p className="mt-1 text-[10px] text-[#A3A3A3]">{wager.creatorRoosterName} · {formatDemoCredits(wager.amount)} por persona</p><p className={`mt-1 text-[10px] font-black ${wager.status === 'settled' ? wager.winningUserId === signedInUser.id ? 'text-[#72D1A4]' : 'text-[#F58A8E]' : wager.status === 'cancelled' ? 'text-[#888]' : 'text-[#D99024]'}`}>{wager.status === 'open' ? 'RETO ABIERTO · créditos demo reservados' : wager.status === 'accepted' ? `ACEPTADO · ${wager.accepterName} tomó el otro lado` : wager.status === 'settled' ? wager.winningUserId === signedInUser.id ? `RESULTADO DEMO · ganaste ${formatDemoCredits(wager.paidOut ?? wager.amount * 2)}` : `RESULTADO DEMO · ganó ${wager.winningName || 'la otra persona'}` : `CANCELADO${wager.cancelReason === 'fight_started' ? ' · créditos demo devueltos al iniciar' : wager.cancelReason === 'fight_cancelled' ? ' · créditos demo devueltos al cancelar la pelea' : wager.cancelReason === 'fight_finished_without_acceptance' ? ' · créditos demo devueltos, no fue aceptada' : wager.cancelReason === 'event_cancelled' ? ' · créditos demo devueltos al cancelar el evento' : ''}`}</p></div>)}</div> : <p className="mt-3 text-xs text-[#888]">{signedInUser ? 'Todavía no tienes retos demo.' : 'Inicia sesión para consultar tus retos demo.'}</p>}</section>
           </aside>
         </div>
       </main>
@@ -582,10 +583,10 @@ export default function App() {
           </div>
 
           <button type="button" onClick={() => setView('fights')} className="flex min-h-40 w-72 shrink-0 flex-col items-start justify-center gap-3 rounded-xl border border-[#D99024]/30 bg-[#171717] p-5 text-left transition hover:border-[#D71920] xl:w-80">
-            <span className="text-[10px] font-black tracking-[0.2em] text-[#D99024]">CARTELERA Y APUESTAS</span>
+            <span className="text-[10px] font-black tracking-[0.2em] text-[#D99024]">CARTELERA Y RETOS DEMO</span>
             <span className="font-heading text-lg font-black">{orderedFights.length} peleas registradas</span>
-            <span className="text-xs text-[#A3A3A3]">Consulta resultados y apuesta antes de que inicie cada combate.</span>
-            <span className="text-xs font-black tracking-wider text-[#D71920]">IR A PELEAS Y APUESTAS →</span>
+            <span className="text-xs text-[#A3A3A3]">Consulta resultados y prueba retos con créditos ficticios.</span>
+            <span className="text-xs font-black tracking-wider text-[#D71920]">IR A PELEAS Y RETOS DEMO →</span>
           </button>
         </div>
         {/* ─── FIGHT INFO ─── */}
@@ -604,24 +605,25 @@ export default function App() {
         {/* ─── BOTTOM GRID: Upcoming Fights + Chat ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-5">
 
-          <section className="rounded-xl border border-[#2A2A2A] bg-[#171717] p-5" aria-label="Apuestas uno contra uno">
+          <section className="rounded-xl border border-[#2A2A2A] bg-[#171717] p-5" aria-label="Retos demo uno contra uno">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div><p className="text-[10px] font-black tracking-[0.2em] text-[#D99024]">APUESTAS ENTRE USUARIOS</p><h2 className="mt-1 font-heading text-xl font-black">Reto 1 vs 1</h2></div>
+              <div><p className="text-[10px] font-black tracking-[0.2em] text-[#D99024]">RETOS DEMO ENTRE USUARIOS</p><h2 className="mt-1 font-heading text-xl font-black">Reto de prueba 1 vs 1</h2></div>
               <button type="button" onClick={() => setView('fights')} className="text-[10px] font-black tracking-wider text-[#D71920] hover:text-white">CARTELERA E HISTORIAL →</button>
             </div>
             {homeWagerFight ? <>
+              <p className="mt-3 rounded-lg border border-[#D99024]/40 bg-[#D99024]/10 px-3 py-2 text-[10px] leading-4 text-[#E9C27D]">MODO DEMO: créditos ficticios sin valor monetario; no hay depósitos ni retiros reales.</p>
               <p className="mt-3 text-xs text-[#A3A3A3]">Pelea #{String(homeWagerFight.number).padStart(3, '0')} · {homeWagerFight.eventName}: {homeWagerFight.roosterA.name} vs {homeWagerFight.roosterB.name}</p>
               {signedInUser ? <form onSubmit={createWager} className="mt-3 space-y-3 rounded-lg border border-[#2A2A2A] bg-[#0B0B0B] p-3">
-                <p className="text-[11px] text-[#A3A3A3]">Elige un gallo y el monto. Otro usuario puede aceptar con el mismo monto por el rival.</p>
+                <p className="text-[11px] text-[#A3A3A3]">Elige un gallo y una cantidad de créditos demo. Otro usuario puede aceptar el reto con la misma cantidad por el rival.</p>
                 <div className="grid grid-cols-2 gap-2">{[homeWagerFight.roosterA, homeWagerFight.roosterB].map((rooster, index) => { const side = index === 0 ? 'a' : 'b'; const selected = betSelected === side; return <button key={rooster.id} type="button" onClick={() => { setBetSelected(side); setBetError(''); setBetNotice('') }} aria-pressed={selected} className={`rounded-lg border p-2.5 text-left ${selected ? 'border-[#D71920] bg-[#D71920]/15' : 'border-[#333] bg-[#111]'}`}><span className="block text-[9px] font-black tracking-widest text-[#888]">GALLO {index === 0 ? 'A' : 'B'}</span><span className="mt-1 block truncate text-xs font-bold">{rooster.name}</span></button> })}</div>
-                <div className="flex flex-wrap items-end gap-2"><label className="min-w-36 flex-1 text-[9px] font-bold tracking-widest text-[#A3A3A3]">MONTO<input type="number" min="1000" step="1000" max={signedInUser.saldo ?? 0} required value={betAmount} onChange={event => setBetAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-[#333] bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D71920]" /></label><button type="submit" disabled={betSaving || !betSelected || Number(betAmount) < 1000 || Number(betAmount) > (signedInUser.saldo ?? 0)} className="rounded-lg bg-[#D71920] px-4 py-2.5 text-[10px] font-black tracking-wider text-white disabled:opacity-50">{betSaving ? 'PUBLICANDO…' : 'PUBLICAR RETO'}</button></div>
-                <p className="text-[10px] text-[#777]">Saldo: {formatCOP(signedInUser.saldo ?? 0)} · Tu monto se reserva; pozo total si aceptan: {formatCOP(Math.max(0, Number(betAmount) || 0) * 2)}.</p>
+                <div className="flex flex-wrap items-end gap-2"><label className="min-w-36 flex-1 text-[9px] font-bold tracking-widest text-[#A3A3A3]">CRÉDITOS DEMO<input type="number" min="1000" step="1000" max={signedInUser.saldo ?? 0} required value={betAmount} onChange={event => setBetAmount(event.target.value)} className="mt-1 w-full rounded-lg border border-[#333] bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D71920]" /></label><button type="submit" disabled={betSaving || !betSelected || Number(betAmount) < 1000 || Number(betAmount) > (signedInUser.saldo ?? 0)} className="rounded-lg bg-[#D71920] px-4 py-2.5 text-[10px] font-black tracking-wider text-white disabled:opacity-50">{betSaving ? 'PUBLICANDO…' : 'PUBLICAR RETO DEMO'}</button></div>
+                <p className="text-[10px] text-[#777]">Saldo demo: {formatDemoCredits(signedInUser.saldo ?? 0)} · Se reservan los créditos ficticios; total demo si aceptan: {formatDemoCredits(Math.max(0, Number(betAmount) || 0) * 2)}.</p>
                 {betError && <p role="alert" className="text-xs text-[#F58A8E]">{betError}</p>}{betNotice && <p role="status" className="text-xs text-[#72D1A4]">{betNotice}</p>}
-              </form> : <button type="button" onClick={() => setView('login')} className="mt-3 w-full rounded-lg border border-[#333] bg-[#0B0B0B] p-3 text-left text-xs font-bold">Inicia sesión para publicar o aceptar un reto.</button>}
+              </form> : <button type="button" onClick={() => setView('login')} className="mt-3 w-full rounded-lg border border-[#333] bg-[#0B0B0B] p-3 text-left text-xs font-bold">Inicia sesión para publicar o aceptar un reto demo.</button>}
               <div className="mt-4 space-y-2"><p className="text-[9px] font-black tracking-widest text-[#A3A3A3]">RETOS ABIERTOS · {openWagers.filter(wager => wager.fightId === homeWagerFight.id && wager.status === 'open').length}</p>
-                {openWagers.filter(wager => wager.fightId === homeWagerFight.id).length ? openWagers.filter(wager => wager.fightId === homeWagerFight.id).map(wager => <article key={wager.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#2A2A2A] bg-[#0B0B0B] p-3"><div><p className="text-xs font-bold">{wager.creatorName} apuesta por {wager.creatorRoosterName}</p><p className="mt-1 text-[10px] text-[#888]">{wager.status === 'open' ? 'Abierta · monto igual para aceptar' : `${wager.accepterName} aceptó por ${wager.accepterRoosterName}`} · {formatCOP(wager.amount)} por persona</p></div>{wager.status === 'open' && signedInUser && (wager.isMine ? <button type="button" onClick={() => void cancelWager(wager.id)} disabled={wagerActionId === wager.id} className="rounded-lg border border-[#444] px-3 py-2 text-[9px] font-black text-[#AAA] disabled:opacity-50">{wagerActionId === wager.id ? '…' : 'CANCELAR'}</button> : <button type="button" onClick={() => void acceptWager(wager.id)} disabled={wagerActionId === wager.id} className="rounded-lg bg-[#176B45] px-3 py-2 text-[9px] font-black text-white disabled:opacity-50">{wagerActionId === wager.id ? '…' : `ACEPTAR · ${formatCOP(wager.amount)}`}</button>)}</article>) : <p className="rounded-lg border border-dashed border-[#333] p-3 text-xs text-[#777]">Aún no hay retos para esta pelea.</p>}
+                {openWagers.filter(wager => wager.fightId === homeWagerFight.id).length ? openWagers.filter(wager => wager.fightId === homeWagerFight.id).map(wager => <article key={wager.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#2A2A2A] bg-[#0B0B0B] p-3"><div><p className="text-xs font-bold">{wager.creatorName} propone un reto demo por {wager.creatorRoosterName}</p><p className="mt-1 text-[10px] text-[#888]">{wager.status === 'open' ? 'Abierto · créditos demo para aceptar' : `${wager.accepterName} aceptó por ${wager.accepterRoosterName}`} · {formatDemoCredits(wager.amount)} por persona</p></div>{wager.status === 'open' && signedInUser && (wager.isMine ? <button type="button" onClick={() => void cancelWager(wager.id)} disabled={wagerActionId === wager.id} className="rounded-lg border border-[#444] px-3 py-2 text-[9px] font-black text-[#AAA] disabled:opacity-50">{wagerActionId === wager.id ? '…' : 'CANCELAR'}</button> : <button type="button" onClick={() => void acceptWager(wager.id)} disabled={wagerActionId === wager.id} className="rounded-lg bg-[#176B45] px-3 py-2 text-[9px] font-black text-white disabled:opacity-50">{wagerActionId === wager.id ? '…' : `ACEPTAR · ${formatDemoCredits(wager.amount)}`}</button>)}</article>) : <p className="rounded-lg border border-dashed border-[#333] p-3 text-xs text-[#777]">Aún no hay retos demo para esta pelea.</p>}
               </div>
-            </> : <p className="mt-3 rounded-lg border border-dashed border-[#333] p-4 text-xs text-[#888]">No hay una pelea programada con apuestas abiertas.</p>}
+            </> : <p className="mt-3 rounded-lg border border-dashed border-[#333] p-4 text-xs text-[#888]">No hay una pelea programada con retos demo abiertos.</p>}
           </section>
           {/* LIVE CHAT */}
           <div className="flex flex-col bg-[#171717] rounded-xl border border-[#2A2A2A] overflow-hidden" style={{ maxHeight: '380px' }}>

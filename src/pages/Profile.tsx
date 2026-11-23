@@ -120,11 +120,11 @@ export default function Profile({ user, onBack, onUpdated }: ProfileProps) {
             <label className="text-[10px] font-bold tracking-widest text-[#A3A3A3]">DOCUMENTO DE IDENTIDAD
               <input required maxLength={40} value={profile.documento} onChange={event => set('documento', event.target.value)} className={`${fieldClass} mt-1.5`} />
             </label>
-            <div className="text-[10px] font-bold tracking-widest text-[#A3A3A3]">SALDO ACTUAL
+            <div className="text-[10px] font-bold tracking-widest text-[#A3A3A3]">SALDO DEMO
               <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-xl border border-[#2A2A2A] bg-[#0F0F0F] p-2">
-                <p className="px-2 py-2 text-base font-black text-[#D99024]">${new Intl.NumberFormat('es-CO').format(profile.saldo ?? 0)}</p>
-                <button type="button" onClick={() => window.alert('La pasarela de retiros se conectará más adelante.')} className="ml-auto rounded-lg border border-[#D99024]/50 px-3 py-2 text-[9px] font-black tracking-wider text-[#D99024] transition-colors hover:bg-[#D99024]/10">RETIRAR SALDO</button>
+                <p className="px-2 py-2 text-base font-black text-[#D99024]">{new Intl.NumberFormat('es-CO').format(profile.saldo ?? 0)} créditos demo</p>
               </div>
+              <p className="mt-2 text-xs font-normal normal-case tracking-normal text-[#888]">Son créditos ficticios sin valor monetario. No se pueden comprar ni canjear; no hay depósitos ni retiros reales.</p>
             </div>
           </div>
 

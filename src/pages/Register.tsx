@@ -279,14 +279,14 @@ export default function Register({ onBack, onGoLogin }: RegisterProps) {
                     <input type="checkbox" checked={form.mayores} onChange={e => set('mayores', e.target.checked)} required
                       className="w-4 h-4 accent-[#D71920] cursor-pointer mt-0.5 flex-shrink-0" />
                     <span className="text-xs text-[#A3A3A3] leading-relaxed">
-                      Confirmo que soy mayor de <strong className="text-[#F5F5F5]">18 años</strong> y que las apuestas están permitidas en mi jurisdicción.
+                      Confirmo que soy mayor de <strong className="text-[#F5F5F5]">18 años</strong> y entiendo que esta es una demostración con créditos ficticios, sin depósitos ni pagos reales.
                     </span>
                   </label>
 
                   <div className="p-3 rounded-xl bg-[#D99024]/5 border border-[#D99024]/20 flex items-start gap-2">
                     <span className="text-[#D99024] text-sm mt-0.5">⚠</span>
                     <p className="text-[10px] text-[#A3A3A3] leading-relaxed">
-                      GallerApp promueve el juego responsable. Si necesitas ayuda, contacta a nuestro equipo de soporte.
+                      Esta versión de demostración no recibe ni entrega dinero. Los créditos de prueba no tienen valor monetario.
                     </p>
                   </div>
                 </>
