@@ -245,19 +245,24 @@ function syncEventStatuses(events, fights) {
   }
   return changed
 }
+function validRoosterProfile(input, current) {
+  const name = String(input.name ?? current?.name ?? '').trim()
+  const code = String(input.code ?? current?.code ?? '').trim()
+  const breed = String(input.breed ?? current?.breed ?? '').trim()
+  const arena = String(input.arena ?? current?.arena ?? '').trim()
+  const weight = Number(input.weight ?? Number.parseFloat(current?.weight))
+  const age = Number(input.age ?? Number.parseInt(current?.age, 10))
+  const image = input.image ?? ''
+  if (!name || !code || !breed || !arena || !Number.isFinite(weight) || weight <= 0 || !Number.isInteger(age) || age <= 0) return null
+  if (typeof image !== 'string' || (image && !/^data:image\/(png|jpeg|webp);base64,[a-z\d+/]+={0,2}$/i.test(image))) return null
+  if (image && Buffer.byteLength(image.split(',')[1], 'base64') > 1_500_000) return null
+  return { name, code, breed, weight: `${weight.toFixed(2)} kg`, age: `${age} meses`, arena, image: image || current?.image || defaultRoosters[0].image }
+}
 function validRoosterInput(input) {
-  const name = String(input.name || '').trim()
-  const code = String(input.code || '').trim()
-  const breed = String(input.breed || '').trim()
-  const arena = String(input.arena || '').trim()
-  const weight = Number(input.weight)
-  const age = Number(input.age)
+  const profile = validRoosterProfile(input)
   const wins = Number(input.wins)
-  const image = typeof input.image === 'string' ? input.image : ''
-  const imageBytes = image.startsWith('data:image/') ? Math.floor((image.split(',')[1] || '').length * 0.75) : 0
-  if (!name || !code || !breed || !arena || !Number.isFinite(weight) || weight <= 0 || !Number.isInteger(age) || age <= 0 || !Number.isInteger(wins) || wins < 0 || wins > 10000) return null
-  if (image && (!/^data:image\/(png|jpeg|webp);base64,/.test(image) || imageBytes > 1_500_000)) return null
-  return { name, code, breed, weight: `${weight.toFixed(2)} kg`, age: `${age} meses`, arena, wins, fights: wins, status: 'active', image: image || defaultRoosters[0].image }
+  if (!profile || !Number.isInteger(wins) || wins < 0 || wins > 10000) return null
+  return { ...profile, wins, fights: wins, status: 'active' }
 }
 function validateEvent(input) {
   const event = {
@@ -653,46 +658,59 @@ const server = createServer(async (req, res) => {
       const input = await bodyOf(req)
       const values = validRoosterInput(input)
       if (!values) return respond(res, 400, { message: 'Revisa los datos del gallo y usa una foto JPG, PNG o WEBP de máximo 1.5 MB.' })
-      const roosters = await readRoosters()
-      if (roosters.some(rooster => rooster.code.toLowerCase() === String(input.code).trim().toLowerCase())) return respond(res, 409, { message: 'Ya existe un gallo con ese número de anillo o placa.' })
       const user = await authenticatedUser(req)
-      const created = { id: randomBytes(12).toString('hex'), ...values, owner: user ? `${user.nombre} ${user.apellido}`.trim() : 'Participante', createdAt: new Date().toISOString() }
-      roosters.unshift(created)
-      await saveRoosters(roosters)
-      return respond(res, 201, { message: 'Gallo inscrito correctamente.', rooster: created })
+      return await withUserMutationLock(async () => {
+        const roosters = await readRoosters()
+        if (roosters.some(rooster => rooster.code.toLowerCase() === values.code.toLowerCase())) return respond(res, 409, { message: 'Ya existe un gallo con ese número de anillo o placa.' })
+        const created = { id: randomBytes(12).toString('hex'), ...values, owner: user ? `${user.nombre} ${user.apellido}`.trim() : 'Participante', createdAt: new Date().toISOString() }
+        roosters.unshift(created)
+        await saveRoosters(roosters)
+        return respond(res, 201, { message: 'Gallo inscrito correctamente.', rooster: created })
+      })
     }
     const roosterRoute = path.match(/^\/api\/admin\/roosters\/([^/]+)(?:\/(wins))?$/)
     if (roosterRoute && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
       if (!await adminFor(req)) return respond(res, 403, { message: 'Solo un administrador puede modificar los gallos.' })
-      const roosters = await readRoosters()
-      const index = roosters.findIndex(rooster => rooster.id === roosterRoute[1])
-      if (index < 0) return respond(res, 404, { message: 'Gallo no encontrado.' })
-      if (req.method === 'DELETE' && !roosterRoute[2]) {
-        const fights = await readFights()
-        if (fights.some(fight => (fight.roosterAId === roosters[index].id || fight.roosterBId === roosters[index].id) && fight.status !== 'finished')) return respond(res, 409, { message: 'No puedes eliminar un gallo que tiene peleas pendientes o en vivo.' })
-        roosters.splice(index, 1)
-        await saveRoosters(roosters)
-        return respond(res, 200, { message: 'Gallo eliminado correctamente.' })
-      }
-      if (req.method === 'POST' && roosterRoute[2] === 'wins') {
-        if (roosters[index].status !== 'active') return respond(res, 409, { message: 'Un gallo inactivo no puede sumar victorias.' })
-        roosters[index].wins += 1
-        roosters[index].fights += 1
-        await saveRoosters(roosters)
-        return respond(res, 200, { rooster: roosters[index] })
-      }
-      if (req.method === 'PUT' && !roosterRoute[2]) {
-        const input = await bodyOf(req)
-        if (!['active', 'inactive'].includes(input.status)) return respond(res, 400, { message: 'El estado debe ser activo o inactivo.' })
-        if (roosters[index].status === 'inactive' && input.status === 'active') return respond(res, 409, { message: 'Un gallo inactivo no se puede reactivar.' })
-        if (input.status === 'inactive') {
+      const input = req.method === 'PUT' && !roosterRoute[2] ? await bodyOf(req) : undefined
+      return await withUserMutationLock(async () => {
+        const roosters = await readRoosters()
+        const index = roosters.findIndex(rooster => rooster.id === roosterRoute[1])
+        if (index < 0) return respond(res, 404, { message: 'Gallo no encontrado.' })
+        const rooster = roosters[index]
+        if (req.method === 'DELETE' && !roosterRoute[2]) {
           const fights = await readFights()
-          if (fights.some(fight => (fight.roosterAId === roosters[index].id || fight.roosterBId === roosters[index].id) && fight.status !== 'finished')) return respond(res, 409, { message: 'Finaliza o cancela las peleas pendientes antes de dar de baja este gallo.' })
+          if (fights.some(fight => (fight.roosterAId === rooster.id || fight.roosterBId === rooster.id) && fight.status !== 'finished')) return respond(res, 409, { message: 'No puedes eliminar un gallo que tiene peleas pendientes o en vivo.' })
+          roosters.splice(index, 1)
+          await saveRoosters(roosters)
+          return respond(res, 200, { message: 'Gallo eliminado correctamente.' })
         }
-        roosters[index].status = input.status
-        await saveRoosters(roosters)
-        return respond(res, 200, { rooster: roosters[index] })
-      }
+        if (req.method === 'POST' && roosterRoute[2] === 'wins') {
+          if (rooster.status !== 'active') return respond(res, 409, { message: 'Un gallo inactivo no puede sumar victorias.' })
+          rooster.wins += 1
+          rooster.fights += 1
+          await saveRoosters(roosters)
+          return respond(res, 200, { rooster })
+        }
+        if (req.method === 'PUT' && !roosterRoute[2]) {
+          if (!input || typeof input !== 'object' || Array.isArray(input)) return respond(res, 400, { message: 'Revisa los datos del gallo.' })
+          const status = input.status === undefined ? rooster.status : input.status
+          if (!['active', 'inactive'].includes(status)) return respond(res, 400, { message: 'El estado debe ser activo o inactivo.' })
+          if (rooster.status === 'inactive' && status === 'active') return respond(res, 409, { message: 'Un gallo inactivo no se puede reactivar.' })
+          if (rooster.status === 'active' && status === 'inactive') {
+            const fights = await readFights()
+            if (fights.some(fight => (fight.roosterAId === rooster.id || fight.roosterBId === rooster.id) && fight.status !== 'finished')) return respond(res, 409, { message: 'Finaliza o cancela las peleas pendientes antes de dar de baja este gallo.' })
+          }
+          const profile = validRoosterProfile(input, rooster)
+          const owner = typeof input.owner === 'string' ? input.owner.trim() : rooster.owner
+          if (!profile || ('owner' in input && (typeof input.owner !== 'string' || !owner))) return respond(res, 400, { message: 'Revisa los datos del gallo y usa una foto JPG, PNG o WEBP de máximo 1.5 MB.' })
+          if (roosters.some(other => other.id !== rooster.id && other.code.toLowerCase() === profile.code.toLowerCase())) return respond(res, 409, { message: 'Ya existe un gallo con ese número de anillo o placa.' })
+          const updated = { ...rooster, ...profile, owner, status }
+          roosters[index] = updated
+          await saveRoosters(roosters)
+          return respond(res, 200, { rooster: updated })
+        }
+        return respond(res, 404, { message: 'Ruta no encontrada.' })
+      })
     }
     if (req.method === 'GET' && path === '/api/fights') {
       const [fights, events, roosters] = await Promise.all([readFights(), readEvents(), readRoosters()])

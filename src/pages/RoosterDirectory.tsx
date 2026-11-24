@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { RoosterLogo } from '../components/RoosterLogo'
+import { EditRoosterDialog } from '../components/EditRoosterDialog'
 
 type RoosterStatus = 'active' | 'inactive'
 type DirectoryFilter = 'all' | RoosterStatus
@@ -49,7 +50,7 @@ function Icon({ name }: { name: 'trophy' | 'scale' | 'calendar' | 'pin' | 'user'
   )
 }
 
-function RoosterCard({ rooster, isAdmin, onWin, onToggleStatus, onDelete, disabled }: { rooster: Rooster; isAdmin: boolean; onWin: () => void; onToggleStatus: () => void; onDelete: () => void; disabled: boolean }) {
+function RoosterCard({ rooster, isAdmin, onEdit, onWin, onToggleStatus, onDelete, disabled }: { rooster: Rooster; isAdmin: boolean; onEdit: () => void; onWin: () => void; onToggleStatus: () => void; onDelete: () => void; disabled: boolean }) {
   const isActive = rooster.status === 'active'
 
   return (
@@ -92,6 +93,7 @@ function RoosterCard({ rooster, isAdmin, onWin, onToggleStatus, onDelete, disabl
           <span className="truncate">{rooster.owner}</span>
         </div>
         {isAdmin && <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-[#262626] pt-4">
+          <button disabled={disabled} onClick={onEdit} className="rounded border border-[#D99024]/40 px-3 py-2 text-[10px] font-black tracking-wider text-[#D99024] disabled:opacity-50">EDITAR FICHA</button>
           {isActive && <>
             <button disabled={disabled} onClick={onWin} className="rounded bg-[#176B45] px-3 py-2 text-[10px] font-black tracking-wider text-white disabled:opacity-50">+ SUMAR VICTORIA</button>
             <button disabled={disabled} onClick={onToggleStatus} className="rounded border border-[#555] px-3 py-2 text-[10px] font-black tracking-wider text-[#D0D0D0] disabled:opacity-50">MARCAR INACTIVO</button>
@@ -110,6 +112,8 @@ export default function RoosterDirectory({ signedInUser, onBack, onGoEvents, onG
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [editingRooster, setEditingRooster] = useState<Rooster | null>(null)
+  const [notice, setNotice] = useState('')
 
   async function refresh(showLoading = false) {
     if (showLoading) setLoading(true)
@@ -240,12 +244,23 @@ export default function RoosterDirectory({ signedInUser, onBack, onGoEvents, onG
             </button>
           </div>
 
+          {notice && <p role="status" className="mb-5 rounded-xl border border-[#176B45] bg-[#176B45]/20 p-3 text-sm text-[#A7E4C4]">{notice}</p>}
           {loadError && <p role="alert" className="mb-5 rounded-xl border border-[#D71920]/40 bg-[#D71920]/10 p-3 text-sm text-[#F5A0A3]">{loadError}</p>}
           {loading ? <p className="py-10 text-center text-sm text-[#888]">Cargando gallos…</p> : visibleRoosters.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {visibleRoosters.map(rooster => <RoosterCard key={rooster.id} rooster={rooster} isAdmin={isAdmin} disabled={busyId === rooster.id} onWin={() => addWin(rooster)} onToggleStatus={() => toggleStatus(rooster)} onDelete={() => deleteRooster(rooster)} />)}
+            {visibleRoosters.map(rooster => <RoosterCard key={rooster.id} rooster={rooster} isAdmin={isAdmin} disabled={busyId === rooster.id} onEdit={() => { setNotice(''); setEditingRooster(rooster) }} onWin={() => addWin(rooster)} onToggleStatus={() => toggleStatus(rooster)} onDelete={() => deleteRooster(rooster)} />)}
           </div> : <p className="rounded-xl border border-dashed border-[#333] p-10 text-center text-sm text-[#888]">No hay gallos para este filtro.</p>}
         </section>
       </main>
+
+      {isAdmin && editingRooster && <EditRoosterDialog
+        rooster={editingRooster}
+        onClose={() => setEditingRooster(null)}
+        onSaved={() => {
+          setEditingRooster(null)
+          setNotice('Ficha actualizada.')
+          void refresh()
+        }}
+      />}
 
       <footer className="border-t border-[#1F1F1F] px-6 py-7">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4">
