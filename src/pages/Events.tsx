@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiRequest } from '../lib/api'
 import { RoosterLogo } from '../components/RoosterLogo'
-import eventArenaImage from '../imports/eventos-gallera.jpg'
+import eventArenaImage from '../imports/eventos-gallera.png'
 
 type EventStatus = 'live' | 'upcoming' | 'finished'
 type Filter = 'all' | EventStatus

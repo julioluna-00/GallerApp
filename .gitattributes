@@ -148,4 +148,4 @@
 src/imports/gallerapp-rooster-logo.png -filter -diff -merge -text
 public/stream-starting-soon.jpg -filter -diff -merge -text
 public/stream-finished.jpg -filter -diff -merge -text
-src/imports/eventos-gallera.jpg -filter -diff -merge -text
+src/imports/eventos-gallera.png -filter -diff -merge -text
